@@ -19,3 +19,15 @@ class StanfordCars(BaseCoOPDataset):
 class Flowers102(BaseCoOPDataset):
     dataset_name = "flowers-102"
     annotation_filename = "split_zhou_OxfordFlowers.json"
+
+
+class Food101(BaseCoOPDataset):
+    dataset_name = "food-101"
+    annotation_filename = "split_zhou_Food101.json"
+
+
+if __name__ == "__main__":
+    dataset = Food101(root="/mnt/data/classification", mode="test")
+    print(dataset[0])
+    print(len(dataset))
+    print(len(dataset.class_list))
