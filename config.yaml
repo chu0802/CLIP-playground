@@ -1,0 +1,5 @@
+model:
+  vit_base: ViT-B-16
+  pretrained: laion2b_s34b_b88k
+data:
+  root: /mnt/data/classification
