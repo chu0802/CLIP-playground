@@ -26,8 +26,13 @@ class Food101(BaseCoOPDataset):
     annotation_filename = "split_zhou_Food101.json"
 
 
+class FGVCAircraft(BaseCoOPDataset):
+    dataset_name = "fgvc-aircraft"
+    annotation_filename = "annotations.json"
+
+
 if __name__ == "__main__":
-    dataset = Food101(root="/mnt/data/classification", mode="test")
+    dataset = FGVCAircraft(root="/mnt/data/classification", mode="test")
     print(dataset[0])
     print(len(dataset))
     print(len(dataset.class_list))
