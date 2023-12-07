@@ -12,7 +12,7 @@ class ClipModel:
     @torch.no_grad()
     @torch.cuda.amp.autocast()
     def inference(self, image, label_space):
-        label_space = self.tokenizer(label_space)
+        label_space = self.tokenizer(label_space).cuda()
 
         image_features = self.clip_base.encode_image(image)
         text_features = self.clip_base.encode_text(label_space)
@@ -21,4 +21,4 @@ class ClipModel:
 
         text_probs = (100.0 * image_features @ text_features.T).softmax(dim=-1)
 
-        return text_probs[0]
+        return text_probs
