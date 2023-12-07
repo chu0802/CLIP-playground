@@ -46,8 +46,13 @@ class UCF101(BaseClassificationDataset):
     annotation_filename = "split_zhou_UCF101_new.json"
 
 
+class DTD(BaseClassificationDataset):
+    dataset_name = "dtd"
+    annotation_filename = "split_zhou_DescribableTextures_new.json"
+
+
 if __name__ == "__main__":
-    dataset = ImageNet(root="/mnt/data/classification", mode="train")
+    dataset = DTD(root="/mnt/data/classification", mode="test")
     print(dataset[0])
     print(len(dataset))
     print(len(dataset.class_list))
