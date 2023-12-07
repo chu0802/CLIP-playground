@@ -1,1 +1,11 @@
-from .core_dataset import Caltech101, Flowers102, Food101, OxfordPets, StanfordCars
+from .core_dataset import (
+    UCF101,
+    Caltech101,
+    EuroSAT,
+    FGVCAircraft,
+    Flowers102,
+    Food101,
+    ImageNet,
+    OxfordPets,
+    StanfordCars,
+)
