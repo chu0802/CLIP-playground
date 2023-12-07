@@ -17,13 +17,19 @@ class BaseClassificationDataset(Dataset):
     def __init__(self, root, mode="train", transform=None, sample_num=-1, seed=1102):
         self.root = Path(root) / self.dataset_name
         self.mode = mode
-        self.data_list, self.class_list = self.make_dataset()
+        self._data_list, self._class_name_list = self.make_dataset()
         self.transform = transform
         self.rng = np.random.default_rng(seed)
 
         if sample_num != -1:
-            sample_idx = self.rng.choice(len(self.data_list), sample_num, replace=False)
-            self.data_list = [self.data_list[i] for i in sample_idx]
+            sample_idx = self.rng.choice(
+                len(self._data_list), sample_num, replace=False
+            )
+            self._data_list = [self._data_list[i] for i in sample_idx]
+
+    @property
+    def class_name_list(self):
+        return self._class_name_list
 
     def make_dataset(self):
         """
@@ -60,13 +66,13 @@ class BaseClassificationDataset(Dataset):
         return data_list, data["class_names"]
 
     def get_class_name(self, class_idx):
-        return self.class_list[class_idx]
+        return self._class_name_list[class_idx]
 
     def __len__(self):
-        return len(self.data_list)
+        return len(self._data_list)
 
     def __getitem__(self, index):
-        path, label = self.data_list[index]
+        path, label = self._data_list[index]
         image = pil_loader(path)
 
         if self.transform:
