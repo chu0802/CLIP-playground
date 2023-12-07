@@ -1,7 +1,6 @@
 import open_clip
 import torch
 import torch.nn as nn
-from open_clip.transform import PreprocessCfg, image_transform_v2
 
 from src.template import SIMPLE_TEMPLATE_LIST, ClassTemplate
 
