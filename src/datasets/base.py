@@ -2,6 +2,7 @@ import json
 from abc import abstractmethod
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
 
@@ -13,11 +14,16 @@ def pil_loader(path: str):
 
 
 class BaseClassificationDataset(Dataset):
-    def __init__(self, root, mode="train", transform=None):
+    def __init__(self, root, mode="train", transform=None, sample_num=-1, seed=1102):
         self.root = Path(root) / self.dataset_name
         self.mode = mode
         self.data_list, self.class_list = self.make_dataset()
         self.transform = transform
+        self.rng = np.random.default_rng(seed)
+
+        if sample_num != -1:
+            sample_idx = self.rng.choice(len(self.data_list), sample_num, replace=False)
+            self.data_list = [self.data_list[i] for i in sample_idx]
 
     def make_dataset(self):
         """
@@ -60,10 +66,10 @@ class BaseClassificationDataset(Dataset):
         return len(self.data_list)
 
     def __getitem__(self, index):
-        path, class_id = self.data_list[index]
+        path, label = self.data_list[index]
         image = pil_loader(path)
 
         if self.transform:
             image = self.transform(image)
 
-        return image, class_id
+        return image, label
