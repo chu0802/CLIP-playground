@@ -1,5 +1,7 @@
 model:
   vit_base: ViT-B-16
-  pretrained: laion2b_s34b_b88k
+  # pretrained: laion2b_s34b_b88k
+  pretrained: datacomp_xl_s13b_b90k
 data:
   root: /mnt/data/classification
+  sample_num: -1
