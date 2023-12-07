@@ -20,18 +20,38 @@ class BaseClassificationDataset(Dataset):
         self.transform = transform
 
     def make_dataset(self):
+        """
+        data annotation format:
+        {
+            "data": {
+                "train":[
+                    [image_path, label],
+                    ...
+                ],
+                "val": [
+                    [image_path, label],
+                    ...
+                ],
+                "test": [
+                    [image_path, label],
+                    ...
+                ]
+            },
+            "class_names": [
+                class_0_name,
+                class_1_name,
+                ...
+            ]
+        }
+        """
         with (self.root / self.annotation_filename).open("r") as f:
             data = json.load(f)
 
-        data_list, class_dict = [], {}
-        for d in data[self.mode]:
+        data_list = []
+        for d in data["data"][self.mode]:
             data_list.append(((self.root / "images" / d[0]).as_posix(), d[1]))
-            if d[1] not in class_dict:
-                class_dict[d[1]] = d[2]
 
-        class_list = [class_dict[i] for i in sorted(class_dict.keys())]
-
-        return data_list, class_list
+        return data_list, data["class_names"]
 
     def get_class_name(self, class_idx):
         return self.class_list[class_idx]
