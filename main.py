@@ -27,13 +27,11 @@ def main(config):
         device="cuda",
     ).eval()
 
-    iter_dataloader, num_total_iteration = build_iter_dataloader(
-        dataset, batch_size=256, device="cuda"
-    )
+    iter_dataloader = build_iter_dataloader(dataset, batch_size=256, device="cuda")
     scores = AccuracyMeter()
 
     with torch.no_grad():
-        for images, labels in tqdm(iter_dataloader, total=num_total_iteration):
+        for images, labels in tqdm(iter_dataloader):
             preds = model(images).argmax(dim=1)
             scores += preds == labels
 

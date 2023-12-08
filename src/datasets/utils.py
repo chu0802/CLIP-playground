@@ -3,13 +3,13 @@ from torch.utils.data import DataLoader
 
 class DataIterativeLoader:
     def __init__(self, dataloader, device="cuda"):
-        self.dataloader = dataloader
-        self.iterator = iter(self.dataloader)
+        self.len = len(dataloader)
+        self.iterator = iter(dataloader)
         self.device = device
 
     def __iter__(self):
         num = 0
-        while num < len(self.dataloader):
+        while num < self.len:
             x, y = next(self.iterator)
             x = x.to(self.device)
             y = y.to(self.device)
@@ -18,7 +18,7 @@ class DataIterativeLoader:
             num += 1
 
     def __len__(self):
-        return len(self.dataloader)
+        return self.len
 
 
 def build_dataloader(
@@ -57,4 +57,4 @@ def build_iter_dataloader(
         drop_last=drop_last,
     )
 
-    return iter(DataIterativeLoader(dataloader, device=device)), len(dataloader)
+    return DataIterativeLoader(dataloader, device=device)
