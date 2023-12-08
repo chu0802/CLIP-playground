@@ -1,6 +1,7 @@
 import open_clip
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 
 from src.template import SIMPLE_TEMPLATE_LIST, ClassTemplate
 
@@ -32,7 +33,11 @@ class ClassificationHead(nn.Linear):
     @classmethod
     def initialize(cls, class_name_list, class_template):
         classifier_weights = torch.stack(
-            [class_template(class_name) for class_name in class_name_list], dim=0
+            [
+                class_template(class_name)
+                for class_name in tqdm(class_name_list, desc="Build Classifier Weights")
+            ],
+            dim=0,
         )
         return cls(classifier_weights.detach().cpu())
 
@@ -51,13 +56,13 @@ class ClipClassifier(nn.Module):
         return self.classification_head(self.clip_base(images))
 
 
-def load_model(model_config, class_name_list, device="cuda"):
+def load_model(
+    model_config, class_name_list, template_list=SIMPLE_TEMPLATE_LIST, device="cuda"
+):
     clip_base = ClipBase(model_config).to(device)
     tokenizer = open_clip.get_tokenizer(model_config.vit_base)
 
-    class_template = ClassTemplate(
-        clip_base.model, tokenizer, SIMPLE_TEMPLATE_LIST, device
-    )
+    class_template = ClassTemplate(clip_base.model, tokenizer, template_list, device)
 
     classification_head = ClassificationHead.initialize(class_name_list, class_template)
 
