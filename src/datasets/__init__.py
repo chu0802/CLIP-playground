@@ -1,4 +1,5 @@
 from .core_dataset import (
+    DTD,
     UCF101,
     Caltech101,
     EuroSAT,
