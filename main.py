@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from src.datasets import ImageNet
 from src.datasets.transform import load_transform
-from src.datasets.utils import build_dataloader
+from src.datasets.utils import build_iter_dataloader
 from src.models.clip import load_model
 from src.template import OPENAI_IMAGENET_TEMPLATE_LIST, SIMPLE_TEMPLATE_LIST
 from src.utils.metrics import AccuracyMeter
@@ -27,15 +27,13 @@ def main(config):
         device="cuda",
     ).eval()
 
-    dataloader = build_dataloader(dataset, batch_size=256)
-
+    iter_dataloader, num_total_iteration = build_iter_dataloader(
+        dataset, batch_size=256, device="cuda"
+    )
     scores = AccuracyMeter()
 
     with torch.no_grad():
-        for images, labels in tqdm(dataloader):
-            images = images.cuda()
-            labels = labels.cuda()
-
+        for images, labels in tqdm(iter_dataloader, total=num_total_iteration):
             preds = model(images).argmax(dim=1)
             scores += preds == labels
 
