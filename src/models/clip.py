@@ -35,7 +35,7 @@ class ClassificationHead(nn.Linear):
         classifier_weights = torch.stack(
             [
                 class_template(class_name)
-                for class_name in tqdm(class_name_list, desc="Build Classifier Weights")
+                for class_name in tqdm(class_name_list, desc="Build classifier weights")
             ],
             dim=0,
         )
