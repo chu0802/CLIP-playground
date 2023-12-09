@@ -106,6 +106,8 @@ class Trainer:
     def train(self, set_validation=False):
         with tqdm(total=self.num_total_train_steps) as pbar:
             for epoch in range(self.max_epoch):
+                pbar.set_description(f"Epoch {epoch / self.max_epoch}")
+
                 self.model.train()
                 self.train_loader.init()
 
