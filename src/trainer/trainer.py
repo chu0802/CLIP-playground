@@ -1,4 +1,6 @@
 import datetime
+import json
+from collections import defaultdict
 from pathlib import Path
 
 import torch
@@ -33,12 +35,13 @@ class Trainer:
             / timestamp
         )
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.local_log = defaultdict(dict)
 
         dump_config(self.config, self.output_dir / "config.json")
 
     @property
     def training_mode(self):
-        return not self.config.evaluate
+        return self.config.mode == "train"
 
     @property
     def num_total_train_steps(self):
@@ -68,8 +71,17 @@ class Trainer:
     def test_loader(self):
         return self.dataloaders.get("test", None)
 
-    def logging(self, **message_dict):
+    def get_current_training_step(self, epoch, local_step):
+        return len(self.train_loader) * (epoch - 1) + local_step
+
+    def logging(self, local_desc=None, **message_dict):
         wandb.log(message_dict)
+        if local_desc is not None:
+            self.local_log[local_desc].update(message_dict)
+
+    def dump_results(self, filename="results.json"):
+        with open(self.output_dir / filename, "w") as f:
+            json.dump(self.local_log, f, indent=4)
 
     def train_step(self, images, labels):
         # need to step lr_scheduler first since in this repo I didn't explictly set a learning rate in the optimizer.
@@ -103,9 +115,13 @@ class Trainer:
         return scores.acc()
 
     def train(self, set_validation=False):
+        # test zero-shot validation performance
+        if self.val_loader and set_validation:
+            self.logging(val_acc=self.evaluate(self.val_loader))
+
         with tqdm(total=self.num_total_train_steps) as pbar:
-            for epoch in range(self.max_epoch):
-                pbar.set_description(f"Epoch {epoch+1} / {self.max_epoch}")
+            for epoch in range(1, self.max_epoch + 1):
+                pbar.set_description(f"Epoch {epoch}/{self.max_epoch}: ")
 
                 self.model.train()
                 self.train_loader.init()
@@ -120,5 +136,4 @@ class Trainer:
                         self.logging(lr=self.lr, loss=loss)
 
                 if self.val_loader and set_validation:
-                    acc = self.evaluate(self.val_loader)
-                    self.logging(val_acc=acc)
+                    self.logging(val_acc=self.evaluate(self.val_loader))
