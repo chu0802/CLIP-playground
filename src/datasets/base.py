@@ -1,5 +1,4 @@
 import json
-from abc import abstractmethod
 from pathlib import Path
 
 import numpy as np

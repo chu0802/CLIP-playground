@@ -1,21 +1,8 @@
-import torch
-from omegaconf import OmegaConf
-from tqdm import tqdm
-
-from src.datasets import Flowers102
-from src.datasets.transform import load_transform
-from src.datasets.utils import (
-    build_iter_dataloader,
-    get_dataloaders,
-    load_class_name_list,
-)
+from src.datasets.utils import get_dataloaders, load_class_name_list
 from src.models.clip import load_model
-from src.template import OPENAI_IMAGENET_TEMPLATE_LIST, SIMPLE_TEMPLATE_LIST
+from src.template import SIMPLE_TEMPLATE_LIST
 from src.trainer import Trainer
-from src.utils.config import get_config
-from src.utils.metrics import AccuracyMeter
-from src.utils.seed import setup_seeds
-from src.utils.wandb import wandb_logger
+from src.utils import get_config, setup_seeds, wandb_logger
 
 
 @wandb_logger

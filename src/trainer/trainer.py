@@ -8,8 +8,7 @@ from tqdm import tqdm
 import wandb
 from src.trainer.optimizer import get_optimizer
 from src.trainer.scheduler import CosineLRScheduler
-from src.utils.config import dump_config
-from src.utils.metrics import AccuracyMeter
+from src.utils import AccuracyMeter, dump_config
 
 
 class Trainer:
@@ -98,7 +97,7 @@ class Trainer:
             for images, labels in dataloader:
                 preds = self.model(images).argmax(dim=1)
                 scores += preds == labels
-                pbar.set_postfix_str(f"acc: {scores.acc():.4f}")
+                pbar.set_postfix_str(f"acc: {100 * scores.acc():.2f}%")
                 pbar.update(1)
 
         return scores.acc()
@@ -106,7 +105,7 @@ class Trainer:
     def train(self, set_validation=False):
         with tqdm(total=self.num_total_train_steps) as pbar:
             for epoch in range(self.max_epoch):
-                pbar.set_description(f"Epoch {epoch / self.max_epoch}")
+                pbar.set_description(f"Epoch {epoch+1} / {self.max_epoch}")
 
                 self.model.train()
                 self.train_loader.init()
@@ -114,7 +113,7 @@ class Trainer:
                 for i, (images, labels) in enumerate(self.train_loader):
                     loss = self.train_step(images, labels)
 
-                    pbar.set_postfix_str(f"lr: {self.lr:.4f}, loss: {loss:.4f}")
+                    pbar.set_postfix_str(f"lr: {self.lr:.2e}, loss: {loss:.2e}")
                     pbar.update(1)
 
                     if i % self.log_interval == 0:
