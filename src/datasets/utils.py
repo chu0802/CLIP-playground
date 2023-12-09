@@ -1,21 +1,31 @@
+import json
+from pathlib import Path
+
 from torch.utils.data import DataLoader
+
+from src.datasets import DATASET_MAPPING
+from src.datasets.transform import load_transform
 
 
 class DataIterativeLoader:
     def __init__(self, dataloader, device="cuda"):
         self.len = len(dataloader)
-        self.iterator = iter(dataloader)
+        self.dataloader = dataloader
+        self.iterator = None
         self.device = device
 
-    def __iter__(self):
-        num = 0
-        while num < self.len:
-            x, y = next(self.iterator)
-            x = x.to(self.device)
-            y = y.to(self.device)
+    def init(self):
+        self.iterator = iter(self.dataloader)
 
-            yield x, y
-            num += 1
+    def __next__(self):
+        x, y = next(self.iterator)
+        x = x.to(self.device)
+        y = y.to(self.device)
+
+        return x, y
+
+    def __iter__(self):
+        return self
 
     def __len__(self):
         return self.len
@@ -47,6 +57,7 @@ def build_iter_dataloader(
     shuffle=False,
     drop_last=False,
     device="cuda",
+    **kwargs,
 ):
     dataloader = build_dataloader(
         dataset,
@@ -58,3 +69,37 @@ def build_iter_dataloader(
     )
 
     return DataIterativeLoader(dataloader, device=device)
+
+
+def get_dataloaders(config, device="cuda"):
+    dataloaders = {}
+
+    dataset_class = DATASET_MAPPING[config.data.name]
+    train_transform, eval_transform = load_transform()
+
+    for split_type, split_config in config.data.split.items():
+        dataset = dataset_class(
+            config.data.root,
+            mode=split_config.split_name,
+            transform=train_transform if split_type == "train" else eval_transform,
+            sample_num=config.data.get("sample_num", -1),
+        )
+
+        dataloaders[split_type] = build_iter_dataloader(
+            dataset, **split_config, device=device
+        )
+
+    return dataloaders
+
+
+def load_class_name_list(config):
+    dataset_class = DATASET_MAPPING[config.data.name]
+    name, annotation_filename = (
+        dataset_class.dataset_name,
+        dataset_class.annotation_filename,
+    )
+
+    with (Path(config.data.root) / name / annotation_filename).open("r") as f:
+        data = json.load(f)
+
+    return data["class_names"]
