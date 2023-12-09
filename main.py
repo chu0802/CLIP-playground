@@ -2,42 +2,45 @@ import torch
 from omegaconf import OmegaConf
 from tqdm import tqdm
 
-from src.datasets import ImageNet
+from src.datasets import Flowers102
 from src.datasets.transform import load_transform
-from src.datasets.utils import build_iter_dataloader
+from src.datasets.utils import (
+    build_iter_dataloader,
+    get_dataloaders,
+    load_class_name_list,
+)
 from src.models.clip import load_model
 from src.template import OPENAI_IMAGENET_TEMPLATE_LIST, SIMPLE_TEMPLATE_LIST
+from src.trainer import Trainer
+from src.utils.config import get_config
 from src.utils.metrics import AccuracyMeter
+from src.utils.seed import setup_seeds
+from src.utils.wandb import wandb_logger
 
 
+@wandb_logger
 def main(config):
-    _, eval_transform = load_transform()
+    setup_seeds(config.task.seed)
 
-    dataset = ImageNet(
-        config.data.root,
-        mode="val",
-        transform=eval_transform,
-        sample_num=config.data.sample_num,
-    )
+    class_name_list = load_class_name_list(config)
 
     model = load_model(
         config.model,
-        dataset.class_name_list,
+        class_name_list,
         template_list=SIMPLE_TEMPLATE_LIST,
         device="cuda",
-    ).eval()
+    )
 
-    iter_dataloader = build_iter_dataloader(dataset, batch_size=256, device="cuda")
-    scores = AccuracyMeter()
+    dataloaders = get_dataloaders(config)
 
-    with torch.no_grad():
-        for images, labels in tqdm(iter_dataloader):
-            preds = model(images).argmax(dim=1)
-            scores += preds == labels
+    trainer = Trainer(model, dataloaders, config)
 
-    print(f"Accuracy: {scores.acc()}")
+    if trainer.training_mode:
+        trainer.train(set_validation=True)
+
+    trainer.logging(test_acc=trainer.evaluate(trainer.test_loader))
 
 
 if __name__ == "__main__":
-    config = OmegaConf.load("config.yaml")
+    config = get_config()
     main(config)
