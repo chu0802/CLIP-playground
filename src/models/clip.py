@@ -55,6 +55,17 @@ class ClipClassifier(nn.Module):
     def forward(self, images):
         return self.classification_head(self.clip_base(images))
 
+    def get_params(self):
+        clip_base_params = [p for p in self.clip_base.parameters() if p.requires_grad]
+        classification_head_params = [
+            p for p in self.classification_head.parameters() if p.requires_grad
+        ]
+
+        return [
+            {"params": clip_base_params},
+            {"params": classification_head_params},
+        ]
+
 
 def load_model(
     model_config, class_name_list, template_list=SIMPLE_TEMPLATE_LIST, device="cuda"
