@@ -5,11 +5,11 @@ from omegaconf import OmegaConf
 
 
 class Config:
-    def __init__(self, args):
+    def __init__(self, args, mode="train"):
         self.config = OmegaConf.merge(
             OmegaConf.load(args.cfg_path),
             self._build_user_config(args.options),
-            {"evaluate": args.evaluate},
+            {"mode": mode},
         )
 
     def _build_user_config(self, opts):
@@ -20,9 +20,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--cfg-path", default=f"config.yaml", help="path to configuration file."
-    )
-    parser.add_argument(
-        "-e", "--evaluate", action="store_true", help="only evaluate the model."
     )
     parser.add_argument(
         "--options",
@@ -56,5 +53,5 @@ def dump_config(config, path, flatten=False):
         json.dump(dict_config, f, indent=4)
 
 
-def get_config():
-    return Config(parse_args()).config
+def get_config(mode="train"):
+    return Config(parse_args(), mode=mode).config

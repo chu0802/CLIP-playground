@@ -22,12 +22,12 @@ def main(config):
 
     trainer = Trainer(model, dataloaders, config)
 
-    if trainer.training_mode:
-        trainer.train(set_validation=True)
-
-    trainer.logging(test_acc=trainer.evaluate(trainer.test_loader))
+    trainer.logging(
+        local_desc="zero shot", test_acc=trainer.evaluate(trainer.test_loader)
+    )
+    trainer.dump_results()
 
 
 if __name__ == "__main__":
-    config = get_config()
+    config = get_config(mode="evaluate")
     main(config)
