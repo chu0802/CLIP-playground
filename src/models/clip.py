@@ -63,7 +63,9 @@ class ClipClassifier(nn.Module):
         return self.classification_head(self.clip_base(images))
 
     def get_params(self):
-        clip_base_params = [p for p in self.clip_base.parameters() if p.requires_grad]
+        clip_base_params = [
+            p for p in self.clip_base.model.visual.parameters() if p.requires_grad
+        ]
 
         if self.freeze_classification_head:
             return [{"params": clip_base_params}]
@@ -78,6 +80,36 @@ class ClipClassifier(nn.Module):
         ]
 
 
+# In PureClip model, the text-encoder is involved in the training progress.
+class PureClip(nn.Module):
+    def __init__(self, model_config, class_name_list):
+        super().__init__()
+        self.model = open_clip.create_model_from_pretrained(
+            model_config.vit_base,
+            pretrained=model_config.pretrained,
+            return_transform=False,
+        )
+
+        self.tokenizer = open_clip.get_tokenizer(model_config.vit_base)
+        self.template = SIMPLE_TEMPLATE_LIST[0]
+        self.class_tokens = self.tokenizer(
+            [self.template(t) for t in class_name_list]
+        ).cuda()
+
+    @property
+    def preprocess_config(self):
+        return self.model.visual.preprocess_cfg
+
+    def forward(self, images, normalize=True):
+        image_embeddings = self.model.encode_image(images, normalize=normalize)
+        text_embeddings = self.model.encode_text(self.class_tokens, normalize=normalize)
+
+        return self.model.logit_scale.exp() * image_embeddings @ text_embeddings.T
+
+    def get_params(self):
+        return [{"params": [p for p in self.model.parameters() if p.requires_grad]}]
+
+
 def load_model(
     model_config,
     class_name_list,
@@ -85,6 +117,9 @@ def load_model(
     freeze_classification_head=False,
     device="cuda",
 ):
+    if model_config.use_pure_clip:
+        return PureClip(model_config, class_name_list).to(device)
+
     clip_base = ClipBase(model_config).to(device)
     tokenizer = open_clip.get_tokenizer(model_config.vit_base)
 
