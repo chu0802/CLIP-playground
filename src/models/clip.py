@@ -43,10 +43,17 @@ class ClassificationHead(nn.Linear):
 
 
 class ClipClassifier(nn.Module):
-    def __init__(self, clip_base, classification_head):
+    def __init__(
+        self, clip_base, classification_head, freeze_classification_head=False
+    ):
         super().__init__()
         self.clip_base = clip_base
         self.classification_head = classification_head
+        self.freeze_classification_head = freeze_classification_head
+
+        if freeze_classification_head:
+            for p in self.classification_head.parameters():
+                p.requires_grad = False
 
     @property
     def preprocess_config(self):
@@ -57,6 +64,10 @@ class ClipClassifier(nn.Module):
 
     def get_params(self):
         clip_base_params = [p for p in self.clip_base.parameters() if p.requires_grad]
+
+        if self.freeze_classification_head:
+            return [{"params": clip_base_params}]
+
         classification_head_params = [
             p for p in self.classification_head.parameters() if p.requires_grad
         ]
@@ -68,7 +79,11 @@ class ClipClassifier(nn.Module):
 
 
 def load_model(
-    model_config, class_name_list, template_list=SIMPLE_TEMPLATE_LIST, device="cuda"
+    model_config,
+    class_name_list,
+    template_list=SIMPLE_TEMPLATE_LIST,
+    freeze_classification_head=False,
+    device="cuda",
 ):
     clip_base = ClipBase(model_config).to(device)
     tokenizer = open_clip.get_tokenizer(model_config.vit_base)
@@ -77,7 +92,9 @@ def load_model(
 
     classification_head = ClassificationHead.initialize(class_name_list, class_template)
 
-    return ClipClassifier(clip_base, classification_head).to(device)
+    return ClipClassifier(
+        clip_base, classification_head, freeze_classification_head
+    ).to(device)
 
 
 if __name__ == "__main__":

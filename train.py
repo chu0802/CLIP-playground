@@ -15,6 +15,7 @@ def main(config):
         config.model,
         class_name_list,
         template_list=SIMPLE_TEMPLATE_LIST,
+        freeze_classification_head=True,
         device="cuda",
     )
 
