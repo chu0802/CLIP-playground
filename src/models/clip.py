@@ -7,11 +7,11 @@ from src.template import SIMPLE_TEMPLATE_LIST, ClassTemplate
 
 
 class ClipBase(nn.Module):
-    def __init__(self, model_config):
+    def __init__(self, model_name="ViT-B-16", pretrained="openai"):
         super().__init__()
         self.model = open_clip.create_model_from_pretrained(
-            model_config.vit_base,
-            pretrained=model_config.pretrained,
+            model_name,
+            pretrained=pretrained,
             return_transform=False,
         )
 
@@ -114,21 +114,32 @@ def load_model(
     model_config,
     class_name_list,
     template_list=SIMPLE_TEMPLATE_LIST,
-    freeze_classification_head=False,
     device="cuda",
 ):
-    if model_config.use_pure_clip:
+    if model_config.get("use_pure_clip", False):
         return PureClip(model_config, class_name_list).to(device)
 
-    clip_base = ClipBase(model_config).to(device)
-    tokenizer = open_clip.get_tokenizer(model_config.vit_base)
+    model_name, pretrained = model_config.vit_base, model_config.pretrained
+
+    if (model_name, pretrained) in open_clip.list_pretrained():
+        clip_base = ClipBase(model_config.vit_base, model_config.pretrained).to(device)
+    else:
+        # TODO: check if freeze classification head
+        clip_base = ClipBase(model_name)
+        state_dict = torch.load(pretrained)["model"]
+        clip_base.model.visual.load_state_dict(state_dict)
+        clip_base.to(device)
+
+    tokenizer = open_clip.get_tokenizer(model_name)
 
     class_template = ClassTemplate(clip_base.model, tokenizer, template_list, device)
 
     classification_head = ClassificationHead.initialize(class_name_list, class_template)
 
     return ClipClassifier(
-        clip_base, classification_head, freeze_classification_head
+        clip_base,
+        classification_head,
+        model_config.get("freeze_classification_head", False),
     ).to(device)
 
 

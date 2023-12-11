@@ -39,6 +39,17 @@ class Trainer:
 
         dump_config(self.config, self.output_dir / "config.json")
 
+    def save(self, epoch):
+        # TODO: check if freeze classification head or not
+        visual_state_dict = self.model.clip_base.model.visual.state_dict()
+
+        save_obj = {"model": visual_state_dict}
+
+        save_path = self.output_dir / f"checkpoint_{epoch}.pth"
+
+        print(f"Saving checkpoint at epoch {epoch} to {save_path}.")
+        torch.save(save_obj, save_path)
+
     @property
     def training_mode(self):
         return self.config.mode == "train"
@@ -137,3 +148,5 @@ class Trainer:
 
                 if self.val_loader and set_validation:
                     self.logging(val_acc=self.evaluate(self.val_loader))
+
+                self.save(epoch)
