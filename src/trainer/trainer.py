@@ -1,6 +1,7 @@
 import datetime
 import json
 from collections import defaultdict
+from copy import deepcopy
 from pathlib import Path
 
 import torch
@@ -51,6 +52,10 @@ class Trainer:
         torch.save(save_obj, save_path)
 
     @property
+    def method_config(self):
+        return self.config.model.method
+
+    @property
     def training_mode(self):
         return self.config.mode == "train"
 
@@ -94,12 +99,16 @@ class Trainer:
         with open(self.output_dir / filename, "w") as f:
             json.dump(self.local_log, f, indent=4)
 
+    def base_loss(self, images, labels, **_):
+        outputs = self.model(images)
+        return self.criterion(outputs, labels)
+
     def train_step(self, images, labels):
         # need to step lr_scheduler first since in this repo I didn't explictly set a learning rate in the optimizer.
         self.lr_scheduler.step()
 
-        outputs = self.model(images)
-        loss = self.criterion(outputs, labels)
+        loss_fn = getattr(self, f"{self.method_config.name}_loss")
+        loss = loss_fn(images, labels, **self.method_config.params)
 
         loss.backward()
         self.optimizer.step()
@@ -150,3 +159,28 @@ class Trainer:
                     self.logging(val_acc=self.evaluate(self.val_loader))
 
                 self.save(epoch)
+
+
+class KDTrainer(Trainer):
+    def __init__(self, model, dataloaders, config, teacher_model):
+        super().__init__(model, dataloaders, config)
+        self.teacher_model = teacher_model
+        self.teacher_model.eval()
+        self.kl_criterion = nn.KLDivLoss()
+
+    def random_kd_loss(self, images, labels, batch_size, ratio, **_):
+        base_loss = self.base_loss(images, labels)
+
+        random_noise = torch.rand(batch_size, *images.shape[1:]).to(images.device)
+
+        with torch.no_grad():
+            teacher_logits = self.teacher_model(random_noise)
+
+        student_logits = self.model(random_noise)
+
+        soft_labels = nn.functional.softmax(teacher_logits, dim=-1)
+        soft_preds = nn.functional.log_softmax(student_logits, dim=-1)
+
+        kd_loss = -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
+
+        return base_loss + ratio * kd_loss

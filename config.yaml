@@ -1,9 +1,14 @@
 model:
   vit_base: ViT-B-16
-  # pretrained: laion2b_s34b_b88k
-  # pretrained: datacomp_xl_s13b_b90k
   pretrained: openai
-  use_pure_clip: True
+  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/eurosat/20231212160959/checkpoint_10.pth
+  use_pure_clip: False
+  freeze_classification_head: True
+  method:
+    name: random_kd
+    params:
+      batch_size: 32
+      ratio: 0.2
 data:
   name: flowers-102
   root: /mnt/data/classification
