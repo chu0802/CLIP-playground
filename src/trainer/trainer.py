@@ -184,3 +184,17 @@ class KDTrainer(Trainer):
         kd_loss = -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
 
         return base_loss + ratio * kd_loss
+
+    def lwf_loss(self, images, labels, ratio, **_):
+        student_logits = self.model(images)
+        base_loss = self.criterion(student_logits, labels)
+
+        with torch.no_grad():
+            teacher_logits = self.teacher_model(images)
+
+        soft_labels = nn.functional.softmax(teacher_logits, dim=-1)
+        soft_preds = nn.functional.log_softmax(student_logits, dim=-1)
+
+        kd_loss = -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
+
+        return base_loss + ratio * kd_loss
