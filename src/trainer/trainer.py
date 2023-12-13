@@ -198,3 +198,22 @@ class KDTrainer(Trainer):
         kd_loss = -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
 
         return base_loss + ratio * kd_loss
+
+    def lwf_random_loss(self, images, labels, noise_ratio=0.5, ratio=0.2, **_):
+        base_loss = self.base_loss(images, labels)
+
+        random_noise = torch.rand(*images.shape).to(images.device)
+
+        mix_images = (1 - noise_ratio) * images + noise_ratio * random_noise
+
+        with torch.no_grad():
+            teacher_logits = self.teacher_model(mix_images)
+
+        student_logits = self.model(mix_images)
+
+        soft_labels = nn.functional.softmax(teacher_logits, dim=-1)
+        soft_preds = nn.functional.log_softmax(student_logits, dim=-1)
+
+        kd_loss = -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
+
+        return base_loss + ratio * kd_loss
