@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from src.datasets.utils import load_class_name_list
 from src.template import SIMPLE_TEMPLATE_LIST, ClassTemplate
 
 
@@ -110,12 +111,11 @@ class PureClip(nn.Module):
         return [{"params": [p for p in self.model.parameters() if p.requires_grad]}]
 
 
-def load_model(
-    model_config,
-    class_name_list,
-    template_list=SIMPLE_TEMPLATE_LIST,
-    device="cuda",
-):
+def get_model(config, device="cuda", template_list=SIMPLE_TEMPLATE_LIST):
+    class_name_list = load_class_name_list(config)
+
+    model_config = config.model
+
     if model_config.get("use_pure_clip", False):
         return PureClip(model_config, class_name_list).to(device)
 
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     config = OmegaConf.load("config.yaml")
     dataset = Flowers102(root=config.data.root, mode="val")
 
-    model = load_model(config.model, dataset.class_name_list, device="cuda")
+    model = get_model(config, device="cuda")
 
     a = torch.rand(16, 3, 224, 224).cuda()
     print(model(a))
