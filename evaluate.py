@@ -13,9 +13,9 @@ def main(config):
 
     model = get_model(config, device="cuda")
 
-    if config.model.get("using_wise", False):
+    if "wise_path" in config.model:
         pretrained_config = deepcopy(config)
-        pretrained_config.model.pretrained = "openai"
+        pretrained_config.model.pretrained = config.model.wise_path
         pretrained_model = get_model(pretrained_config, device="cuda")
 
         model = wise_ft(pretrained_model, model)
