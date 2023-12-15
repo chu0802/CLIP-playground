@@ -1,10 +1,9 @@
 model:
   vit_base: ViT-B-16
-  # pretrained: openai
-  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/20231215163110/checkpoint_10.pth
+  pretrained: openai
   use_pure_clip: False
   freeze_classification_head: True
-  using_wise: True
+  wise_path: openai
 
 method:
   name: zscl
