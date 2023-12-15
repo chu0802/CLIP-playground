@@ -1,6 +1,5 @@
-from src.datasets.utils import get_dataloaders, load_class_name_list
+from src.datasets.utils import get_dataloaders_from_config
 from src.models.clip import get_model
-from src.template import SIMPLE_TEMPLATE_LIST
 from src.trainer import Trainer
 from src.utils import get_config, setup_seeds, wandb_logger
 
@@ -11,7 +10,7 @@ def main(config):
 
     model = get_model(config, device="cuda")
 
-    dataloaders = get_dataloaders(config)
+    dataloaders = get_dataloaders_from_config(config)
 
     trainer = Trainer(model, dataloaders, config)
 
