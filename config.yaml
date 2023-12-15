@@ -1,7 +1,7 @@
 model:
   vit_base: ViT-B-16
   # pretrained: openai
-  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/eurosat/20231215151012/checkpoint_5.pth
+  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/20231215163110/checkpoint_10.pth
   use_pure_clip: False
   freeze_classification_head: True
   using_wise: True
