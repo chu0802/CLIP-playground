@@ -22,12 +22,6 @@ class Trainer:
         self.config = config
         self.criterion = nn.CrossEntropyLoss()
 
-        if self.training_mode:
-            self.optimizer = get_optimizer(self.model, self.config.task)
-            self.lr_scheduler = CosineLRScheduler(
-                self.optimizer, self.config.task, self.num_total_train_steps
-            )
-
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
         self.output_dir = (
@@ -40,6 +34,19 @@ class Trainer:
         self.local_log = defaultdict(dict)
 
         dump_config(self.config, self.output_dir / "config.json")
+
+        if self.training_mode:
+            self.optimizer = get_optimizer(self.model, self.config.task)
+            self.lr_scheduler = CosineLRScheduler(
+                self.optimizer, self.config.task, self.num_total_train_steps
+            )
+            self.lastest_dir = self.output_dir.parent / "latest"
+
+            if self.lastest_dir.exists():
+                # unlink it since it's a symbolic link
+                self.lastest_dir.unlink()
+
+            self.lastest_dir.symlink_to(self.output_dir.name)
 
     def save(self, epoch):
         # TODO: check if freeze classification head or not
