@@ -1,1 +1,1 @@
-from .trainer import KDTrainer, Trainer
+from .trainer import Trainer, get_kd_trainer

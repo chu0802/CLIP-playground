@@ -1,8 +1,8 @@
 from copy import deepcopy
 
-from src.datasets.utils import get_dataloaders
+from src.datasets.utils import get_dataloaders_from_config
 from src.models.clip import get_model
-from src.trainer import KDTrainer
+from src.trainer import get_kd_trainer
 from src.utils import get_config, setup_seeds, wandb_logger
 
 
@@ -18,9 +18,9 @@ def main(config):
 
     teacher_model = get_model(teacher_config, device="cuda")
 
-    dataloaders = get_dataloaders(config)
+    dataloaders = get_dataloaders_from_config(config)
 
-    trainer = KDTrainer(model, dataloaders, config, teacher_model)
+    trainer = get_kd_trainer(model, dataloaders, config, teacher_model)
 
     trainer.logging(
         local_desc="zero shot", test_acc=trainer.evaluate(trainer.test_loader)

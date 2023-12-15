@@ -1,14 +1,24 @@
 model:
   vit_base: ViT-B-16
   pretrained: openai
-  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/eurosat/20231213140511/checkpoint_10.pth
+  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/eurosat/20231213175208/checkpoint_5.pth
   use_pure_clip: False
   freeze_classification_head: True
-  method:
-    name: lwf
-    params:
-      # batch_size: 32
-      ratio: 0.2
+
+method:
+  name: zscl
+  params:
+    # batch_size: 32
+    # noise_ratio: 0.2
+    ratio: 0.2
+  ref_dataset: imagenet
+  ref_dataset_config:
+    split_name: train
+    batch_size: 32
+    shuffle: True
+    drop_last: True
+    sample_num: 1000
+
 data:
   name: flowers-102
   root: /mnt/data/classification

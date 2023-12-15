@@ -9,6 +9,7 @@ import torch.nn as nn
 from tqdm import tqdm
 
 import wandb
+from src.datasets.utils import get_dataloader, load_transform
 from src.trainer.optimizer import get_optimizer
 from src.trainer.scheduler import CosineLRScheduler
 from src.utils import AccuracyMeter, dump_config
@@ -53,7 +54,7 @@ class Trainer:
 
     @property
     def method_config(self):
-        return self.config.model.method
+        return self.config.method
 
     @property
     def training_mode(self):
@@ -168,22 +169,25 @@ class KDTrainer(Trainer):
         self.teacher_model.eval()
         self.kl_criterion = nn.KLDivLoss()
 
-    def random_kd_loss(self, images, labels, batch_size, ratio, **_):
-        base_loss = self.base_loss(images, labels)
-
-        random_noise = torch.rand(batch_size, *images.shape[1:]).to(images.device)
-
-        with torch.no_grad():
-            teacher_logits = self.teacher_model(random_noise)
-
-        student_logits = self.model(random_noise)
-
+    def _get_kd_loss(self, student_logits, teacher_logits):
         soft_labels = nn.functional.softmax(teacher_logits, dim=-1)
         soft_preds = nn.functional.log_softmax(student_logits, dim=-1)
 
-        kd_loss = -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
+        return -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
+
+    def general_kd_loss(self, images, labels, ref_data, ratio):
+        base_loss = self.base_loss(images, labels)
+
+        with torch.no_grad():
+            teacher_logits = self.teacher_model(ref_data)
+
+        kd_loss = self._get_kd_loss(self.model(ref_data), teacher_logits)
 
         return base_loss + ratio * kd_loss
+
+    def random_kd_loss(self, images, labels, batch_size, ratio, **_):
+        random_noise = torch.rand(batch_size, *images.shape[1:]).to(images.device)
+        return self.general_kd_loss(images, labels, random_noise, ratio)
 
     def lwf_loss(self, images, labels, ratio, **_):
         student_logits = self.model(images)
@@ -192,28 +196,54 @@ class KDTrainer(Trainer):
         with torch.no_grad():
             teacher_logits = self.teacher_model(images)
 
-        soft_labels = nn.functional.softmax(teacher_logits, dim=-1)
-        soft_preds = nn.functional.log_softmax(student_logits, dim=-1)
-
-        kd_loss = -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
+        kd_loss = self._get_kd_loss(student_logits, teacher_logits)
 
         return base_loss + ratio * kd_loss
 
     def lwf_random_loss(self, images, labels, noise_ratio=0.5, ratio=0.2, **_):
-        base_loss = self.base_loss(images, labels)
+        random_gaussian_noise = torch.randn(*images.shape, device=images.device)
+        mix_images = (1 - noise_ratio) * images + noise_ratio * random_gaussian_noise
+        return self.general_kd_loss(images, labels, mix_images, ratio)
 
-        random_noise = torch.rand(*images.shape).to(images.device)
 
-        mix_images = (1 - noise_ratio) * images + noise_ratio * random_noise
+class ZSCLTrainer(KDTrainer):
+    @property
+    def ref_loader(self):
+        return self.dataloaders["ref"]
 
-        with torch.no_grad():
-            teacher_logits = self.teacher_model(mix_images)
+    def get_ref_data(self):
+        try:
+            ref_data = next(self.ref_loader)
+        except StopIteration:
+            self.ref_loader.init()
+            ref_data = next(self.ref_loader)
+        return ref_data
 
-        student_logits = self.model(mix_images)
+    def zscl_loss(self, images, labels, ratio, **_):
+        ref_images, _ = self.get_ref_data()
+        return self.general_kd_loss(images, labels, ref_images, ratio)
 
-        soft_labels = nn.functional.softmax(teacher_logits, dim=-1)
-        soft_preds = nn.functional.log_softmax(student_logits, dim=-1)
+    def train(self, *args, **kwargs):
+        self.dataloaders["ref"].init()
+        super().train(*args, **kwargs)
 
-        kd_loss = -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
 
-        return base_loss + ratio * kd_loss
+def get_kd_trainer(model, dataloaders, config, teacher_model):
+    if "ref_dataset" in config.method:
+        train_transform, _ = load_transform()
+        dataset_name, dataloader_config = (
+            config.method.ref_dataset,
+            config.method.ref_dataset_config,
+        )
+
+        dataloaders["ref"] = get_dataloader(
+            dataset_name=dataset_name,
+            root=config.data.root,
+            mode=dataloader_config.split_name,
+            transform=train_transform,
+            **dataloader_config,
+        )
+
+        return ZSCLTrainer(model, dataloaders, config, teacher_model)
+    else:
+        return KDTrainer(model, dataloaders, config, teacher_model)
