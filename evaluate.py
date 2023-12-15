@@ -4,9 +4,10 @@ from src.datasets.utils import get_dataloaders_from_config
 from src.models.clip import get_model
 from src.models.wise import wise_ft
 from src.trainer import Trainer
-from src.utils import get_config, setup_seeds, wandb_logger
+from src.utils import get_config, local_logger, setup_seeds
 
 
+@local_logger
 def main(config):
     setup_seeds(config.task.seed)
 
@@ -18,6 +19,8 @@ def main(config):
         pretrained_model = get_model(pretrained_config, device="cuda")
 
         model = wise_ft(pretrained_model, model)
+
+        del pretrained_model
 
     dataloaders = get_dataloaders_from_config(config)
 
