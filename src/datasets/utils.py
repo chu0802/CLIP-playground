@@ -71,22 +71,40 @@ def build_iter_dataloader(
     return DataIterativeLoader(dataloader, device=device)
 
 
-def get_dataloaders(config, device="cuda"):
-    dataloaders = {}
+def get_dataloader(
+    dataset_name,
+    root,
+    mode,
+    transform,
+    sample_num=-1,
+    device="cuda",
+    **dataloader_config,
+):
+    dataset_class = DATASET_MAPPING[dataset_name]
 
-    dataset_class = DATASET_MAPPING[config.data.name]
+    dataset = dataset_class(
+        root,
+        mode=mode,
+        transform=transform,
+        sample_num=sample_num,
+    )
+
+    return build_iter_dataloader(dataset, **dataloader_config, device=device)
+
+
+def get_dataloaders_from_config(config, device="cuda"):
+    dataloaders = {}
     train_transform, eval_transform = load_transform()
 
-    for split_type, split_config in config.data.split.items():
-        dataset = dataset_class(
-            config.data.root,
-            mode=split_config.split_name,
-            transform=train_transform if split_type == "train" else eval_transform,
+    for dataloader_type, dataloader_config in config.data.split.items():
+        dataloaders[dataloader_type] = get_dataloader(
+            dataset_name=config.data.name,
+            root=config.data.root,
+            mode=dataloader_config.split_name,
+            transform=train_transform if dataloader_type == "train" else eval_transform,
             sample_num=config.data.get("sample_num", -1),
-        )
-
-        dataloaders[split_type] = build_iter_dataloader(
-            dataset, **split_config, device=device
+            device=device,
+            **dataloader_config,
         )
 
     return dataloaders
