@@ -91,8 +91,9 @@ class Trainer:
     def get_current_training_step(self, epoch, local_step):
         return len(self.train_loader) * (epoch - 1) + local_step
 
-    def logging(self, local_desc=None, **message_dict):
-        wandb.log(message_dict)
+    def logging(self, local_desc=None, use_wandb=True, **message_dict):
+        if use_wandb:
+            wandb.log(message_dict)
         if local_desc is not None:
             self.local_log[local_desc].update(message_dict)
 
