@@ -38,6 +38,9 @@ if __name__ == "__main__":
         ]
         start_subprocess(commands, print_command=True)
 
+        if i > 0:
+            wise_path = pretrained_path
+
         # evaluation
         pretrained_path = OUTPUTS_ROOT / dataset / "latest" / "checkpoint_10.pth"
 
@@ -51,5 +54,3 @@ if __name__ == "__main__":
                 f"model.wise_path={wise_path}",
             ]
             start_subprocess(commands, print_command=False)
-
-        wise_path = pretrained_path
