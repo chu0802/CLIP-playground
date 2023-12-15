@@ -1,9 +1,10 @@
 model:
   vit_base: ViT-B-16
-  pretrained: openai
-  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/eurosat/20231213175208/checkpoint_5.pth
+  # pretrained: openai
+  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/eurosat/20231215151012/checkpoint_5.pth
   use_pure_clip: False
   freeze_classification_head: True
+  using_wise: True
 
 method:
   name: zscl
