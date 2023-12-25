@@ -34,7 +34,7 @@ if __name__ == "__main__":
             "--options",
             f"data.name={dataset}",
             f"model.pretrained={pretrained_path}",
-            f"model.wise_path={wise_path}",
+            f"model.wise.path={wise_path}",
         ]
         start_subprocess(commands, print_command=True)
 
@@ -51,6 +51,6 @@ if __name__ == "__main__":
                 "--options",
                 f"data.name={eval_dataset}",
                 f"model.pretrained={pretrained_path}",
-                f"model.wise_path={wise_path}",
+                f"model.wise.path={wise_path}",
             ]
             start_subprocess(commands, print_command=False)

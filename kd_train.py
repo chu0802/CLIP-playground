@@ -13,12 +13,12 @@ def main(config):
 
     model = get_model(config, device="cuda")
 
-    if "wise_path" in config.model:
+    if config.model.wise.get("enable", False):
         pretrained_config = deepcopy(config)
-        pretrained_config.model.pretrained = config.model.wise_path
+        pretrained_config.model.pretrained = config.model.wise.path
         pretrained_model = get_model(pretrained_config, device="cuda")
 
-        model = wise_ft(pretrained_model, model)
+        model = wise_ft(pretrained_model, model, alpha=config.model.wise.ratio)
 
         del pretrained_model
 
