@@ -60,6 +60,12 @@ class ClipClassifier(nn.Module):
     def preprocess_config(self):
         return self.clip_base.preprocess_config
 
+    def get_prediction_from_features(self, feats):
+        return self.classification_head(feats)
+
+    def get_features(self, images):
+        return self.clip_base(images)
+
     def forward(self, images):
         return self.classification_head(self.clip_base(images))
 
