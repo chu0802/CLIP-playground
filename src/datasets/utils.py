@@ -18,11 +18,16 @@ class DataIterativeLoader:
         self.iterator = iter(self.dataloader)
 
     def __next__(self):
-        x, y = next(self.iterator)
-        x = x.to(self.device)
-        y = y.to(self.device)
+        data = next(self.iterator)
+        if isinstance(data, list):
+            x, y = data
+            x = x.to(self.device)
+            y = y.to(self.device)
 
-        return x, y
+            return x, y
+        else:
+            data = data.to(self.device)
+            return data
 
     def __iter__(self):
         return self
