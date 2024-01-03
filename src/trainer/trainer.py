@@ -9,7 +9,8 @@ import torch.nn as nn
 from tqdm import tqdm
 
 import wandb
-from src.datasets.utils import get_dataloader, load_transform
+from src.datasets import DATASET_MAPPING
+from src.datasets.utils import build_iter_dataloader, get_dataloader, load_transform
 from src.trainer.optimizer import get_optimizer
 from src.trainer.scheduler import CosineLRScheduler
 from src.utils import AccuracyMeter, dump_config
@@ -183,13 +184,18 @@ class KDTrainer(Trainer):
 
         return -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
 
-    def general_kd_loss(self, images, labels, ref_data, ratio):
-        base_loss = self.base_loss(images, labels)
+    def get_kd_loss(self, ref_data, student_logits=None):
+        if student_logits is None:
+            student_logits = self.model(ref_data)
 
         with torch.no_grad():
             teacher_logits = self.teacher_model(ref_data)
 
-        kd_loss = self._get_kd_loss(self.model(ref_data), teacher_logits)
+        return self._get_kd_loss(student_logits, teacher_logits)
+
+    def general_kd_loss(self, images, labels, ref_data, ratio):
+        base_loss = self.base_loss(images, labels)
+        kd_loss = self.get_kd_loss(ref_data)
 
         return base_loss + ratio * kd_loss
 
@@ -200,11 +206,7 @@ class KDTrainer(Trainer):
     def lwf_loss(self, images, labels, ratio, **_):
         student_logits = self.model(images)
         base_loss = self.criterion(student_logits, labels)
-
-        with torch.no_grad():
-            teacher_logits = self.teacher_model(images)
-
-        kd_loss = self._get_kd_loss(student_logits, teacher_logits)
+        kd_loss = self.get_kd_loss(ref_data=images, student_logits=student_logits)
 
         return base_loss + ratio * kd_loss
 
@@ -219,20 +221,40 @@ class ZSCLTrainer(KDTrainer):
     def ref_loader(self):
         return self.dataloaders["ref"]
 
-    def get_ref_data(self):
+    def get_ref_data(self, loader):
         try:
-            ref_data = next(self.ref_loader)
+            ref_data = next(loader)
         except StopIteration:
-            self.ref_loader.init()
-            ref_data = next(self.ref_loader)
+            loader.init()
+            ref_data = next(loader)
         return ref_data
 
     def zscl_loss(self, images, labels, ratio, **_):
-        ref_images, _ = self.get_ref_data()
+        ref_images, _ = self.get_ref_data(self.ref_loader)
         return self.general_kd_loss(images, labels, ref_images, ratio)
 
     def train(self, *args, **kwargs):
         self.dataloaders["ref"].init()
+        super().train(*args, **kwargs)
+
+
+class PreviousAwareZSCLTrainer(ZSCLTrainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @property
+    def previous_loader(self):
+        return self.dataloaders["prev"]
+
+    def previous_aware_zscl_loss(self, images, labels, ratio_ref, ratio_prev, **_):
+        zscl_loss = self.zscl_loss(images, labels, ratio_ref)
+        previous_images, _ = self.get_ref_data(self.previous_loader)
+        previous_loss = self.get_kd_loss(previous_images)
+
+        return zscl_loss + ratio_prev * previous_loss
+
+    def train(self, *args, **kwargs):
+        self.dataloaders["prev"].init()
         super().train(*args, **kwargs)
 
 
@@ -252,6 +274,41 @@ def get_kd_trainer(model, dataloaders, config, teacher_model):
             **dataloader_config,
         )
 
-        return ZSCLTrainer(model, dataloaders, config, teacher_model)
-    else:
-        return KDTrainer(model, dataloaders, config, teacher_model)
+    if config.method.name == "previous_aware_zscl":
+        train_transform, _ = load_transform()
+
+        previous_config = config.method.previous_config
+
+        if config.method.previous_dataset in DATASET_MAPPING:
+            dataloader = get_dataloader(
+                dataset_name=config.method.previous_dataset,
+                root=config.data.root,
+                mode=previous_config.split_name,
+                transform=train_transform,
+                **previous_config,
+            )
+        else:
+            if config.method.previous_dataset == "learnable_input":
+                previous_approximation = torch.load("learnable_input.pt")
+            else:
+                previous_approximation = torch.randn(
+                    previous_config.total_num, 3, 224, 224
+                )
+
+            dataloader = build_iter_dataloader(
+                previous_approximation,
+                transform=train_transform,
+                **previous_config,
+            )
+
+        dataloaders["prev"] = dataloader
+
+    arguments = [model, dataloaders, config, teacher_model]
+
+    match config.method.name:
+        case "zscl":
+            return ZSCLTrainer(*arguments)
+        case "previous_aware_zscl":
+            return PreviousAwareZSCLTrainer(*arguments)
+        case _:
+            return KDTrainer(*arguments)
