@@ -9,6 +9,8 @@ from .core_dataset import (
     ImageNet,
     OxfordPets,
     StanfordCars,
+    SynthAirplane,
+    SynthFGVCAircraft,
 )
 
 DATASET_MAPPING = {
@@ -22,4 +24,6 @@ DATASET_MAPPING = {
     "imagenet": ImageNet,
     "oxford-pets": OxfordPets,
     "stanford-cars": StanfordCars,
+    "synth-fgvc-aircraft": SynthFGVCAircraft,
+    "synth-airplane": SynthAirplane,
 }

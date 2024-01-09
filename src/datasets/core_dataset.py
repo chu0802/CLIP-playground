@@ -36,6 +36,16 @@ class FGVCAircraft(BaseClassificationDataset):
     annotation_filename = "annotations_new.json"
 
 
+class SynthFGVCAircraft(BaseClassificationDataset):
+    dataset_name = "synth-fgvc-aircraft"
+    annotation_filename = "annotations_new.json"
+
+
+class SynthAirplane(BaseClassificationDataset):
+    dataset_name = "synth-airplane"
+    annotation_filename = "annotations_new.json"
+
+
 class EuroSAT(BaseClassificationDataset):
     dataset_name = "eurosat"
     annotation_filename = "split_zhou_EuroSAT_new.json"
