@@ -4,6 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -118,13 +119,14 @@ class Trainer:
         self.lr_scheduler.step()
 
         loss_fn = getattr(self, f"{self.method_config.name}_loss")
-        loss = loss_fn(images, labels, **self.method_config.params)
+        loss, loss_dict = loss_fn(images, labels, **self.method_config.params)
 
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
 
-        return loss.item()
+        loss_dict.update({"total_loss": loss.item()})
+        return loss_dict
 
     def evaluate(self, dataloader=None):
         if dataloader is None:
@@ -157,13 +159,15 @@ class Trainer:
                 self.train_loader.init()
 
                 for i, (images, labels) in enumerate(self.train_loader):
-                    loss = self.train_step(images, labels)
+                    loss_dict = self.train_step(images, labels)
 
-                    pbar.set_postfix_str(f"lr: {self.lr:.2e}, loss: {loss:.2e}")
+                    pbar.set_postfix_str(
+                        f"lr: {self.lr:.2e}, loss: {loss_dict['total_loss']:.2e}"
+                    )
                     pbar.update(1)
 
                     if i % self.log_interval == 0:
-                        self.logging(lr=self.lr, loss=loss)
+                        self.logging(lr=self.lr, **loss_dict)
 
                 if self.val_loader and set_validation:
                     self.logging(val_acc=self.evaluate(self.val_loader))
@@ -172,32 +176,56 @@ class Trainer:
 
 
 class KDTrainer(Trainer):
-    def __init__(self, model, dataloaders, config, teacher_model):
+    def __init__(self, model, dataloaders, config, teachers):
         super().__init__(model, dataloaders, config)
-        self.teacher_model = teacher_model
-        self.teacher_model.eval()
+        self._teachers = teachers
+        self.pretrained_teacher_model.eval()
         self.kl_criterion = nn.KLDivLoss()
 
-    def _get_kd_loss(self, student_logits, teacher_logits):
+    @property
+    def pretrained_teacher_model(self):
+        return self._teachers["pretrained"]
+
+    def _get_kd_loss(self, student_logits, teacher_logits, feature_level=False):
+        if feature_level:
+            return torch.norm(student_logits - teacher_logits).mean()
+
         soft_labels = nn.functional.softmax(teacher_logits, dim=-1)
         soft_preds = nn.functional.log_softmax(student_logits, dim=-1)
 
         return -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
 
-    def get_kd_loss(self, ref_data, student_logits=None):
+    def get_kd_loss(
+        self, ref_data, teacher_model=None, student_logits=None, feature_level=False
+    ):
         if student_logits is None:
-            student_logits = self.model(ref_data)
+            student_logits = (
+                self.model.get_features(ref_data)
+                if feature_level
+                else self.model(ref_data)
+            )
 
         with torch.no_grad():
-            teacher_logits = self.teacher_model(ref_data)
+            if teacher_model is None:
+                teacher_model = self.pretrained_teacher_model
+            teacher_logits = (
+                teacher_model.get_features(ref_data)
+                if feature_level
+                else teacher_model(ref_data)
+            )
 
-        return self._get_kd_loss(student_logits, teacher_logits)
+        return self._get_kd_loss(
+            student_logits, teacher_logits, feature_level=feature_level
+        )
 
-    def general_kd_loss(self, images, labels, ref_data, ratio):
+    def general_kd_loss(self, images, labels, ref_data, ratio, feature_level=False):
         base_loss = self.base_loss(images, labels)
-        kd_loss = self.get_kd_loss(ref_data)
+        kd_loss = self.get_kd_loss(ref_data, feature_level=feature_level)
 
-        return base_loss + ratio * kd_loss
+        return base_loss + ratio * kd_loss, {
+            "base_loss": base_loss.item(),
+            "kd_loss": kd_loss.item(),
+        }
 
     def random_kd_loss(self, images, labels, batch_size, ratio, **_):
         random_noise = torch.rand(batch_size, *images.shape[1:]).to(images.device)
@@ -208,7 +236,10 @@ class KDTrainer(Trainer):
         base_loss = self.criterion(student_logits, labels)
         kd_loss = self.get_kd_loss(ref_data=images, student_logits=student_logits)
 
-        return base_loss + ratio * kd_loss
+        return base_loss + ratio * kd_loss, {
+            "base_loss": base_loss.item(),
+            "kd_loss": kd_loss.item(),
+        }
 
     def lwf_random_loss(self, images, labels, noise_ratio=0.5, ratio=0.2, **_):
         random_gaussian_noise = torch.randn(*images.shape, device=images.device)
@@ -227,11 +258,15 @@ class ZSCLTrainer(KDTrainer):
         except StopIteration:
             loader.init()
             ref_data = next(loader)
+        if isinstance(ref_data, (list, tuple)):
+            ref_data = ref_data[0]
         return ref_data
 
-    def zscl_loss(self, images, labels, ratio, **_):
-        ref_images, _ = self.get_ref_data(self.ref_loader)
-        return self.general_kd_loss(images, labels, ref_images, ratio)
+    def zscl_loss(self, images, labels, ratio, feature_level=False, **_):
+        ref_images = self.get_ref_data(self.ref_loader)
+        return self.general_kd_loss(
+            images, labels, ref_images, ratio, feature_level=feature_level
+        )
 
     def train(self, *args, **kwargs):
         self.dataloaders["ref"].init()
@@ -241,24 +276,52 @@ class ZSCLTrainer(KDTrainer):
 class PreviousAwareZSCLTrainer(ZSCLTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.prev_teacher_model.eval()
+
+    @property
+    def prev_teacher_model(self):
+        return self._teachers["prev"]
 
     @property
     def previous_loader(self):
         return self.dataloaders["prev"]
 
-    def previous_aware_zscl_loss(self, images, labels, ratio_ref, ratio_prev, **_):
-        zscl_loss = self.zscl_loss(images, labels, ratio_ref)
-        previous_images, _ = self.get_ref_data(self.previous_loader)
-        previous_loss = self.get_kd_loss(previous_images)
+    def previous_aware_zscl_loss(
+        self,
+        images,
+        labels,
+        ratio_ref,
+        ratio_prev,
+        feature_level=False,
+        mixup=False,
+        **_,
+    ):
+        zscl_loss, loss_dict = self.zscl_loss(
+            images, labels, ratio_ref, feature_level=feature_level
+        )
+        previous_images = self.get_ref_data(self.previous_loader)
 
-        return zscl_loss + ratio_prev * previous_loss
+        if mixup:
+            permute_images = previous_images[
+                torch.randperm(previous_images.shape[0]).to(previous_images.device)
+            ]
+            lamda = np.random.beta(1.0, 1.0)
+            previous_images = lamda * previous_images + (1 - lamda) * permute_images
+
+        previous_loss = self.get_kd_loss(
+            previous_images,
+            teacher_model=self.prev_teacher_model,
+            feature_level=feature_level,
+        )
+        loss_dict.update({"previous_loss": previous_loss.item()})
+        return zscl_loss + ratio_prev * previous_loss, loss_dict
 
     def train(self, *args, **kwargs):
         self.dataloaders["prev"].init()
         super().train(*args, **kwargs)
 
 
-def get_kd_trainer(model, dataloaders, config, teacher_model):
+def get_kd_trainer(model, dataloaders, config, teacher_models):
     if "ref_dataset" in config.method:
         train_transform, _ = load_transform()
         dataset_name, dataloader_config = (
@@ -289,10 +352,12 @@ def get_kd_trainer(model, dataloaders, config, teacher_model):
             )
         else:
             if config.method.previous_dataset == "learnable_input":
-                previous_approximation = torch.load("learnable_input.pt")
+                previous_approximation = (
+                    torch.load("learnable_input_with_gt_labels.pt").cpu().detach()
+                )
             else:
                 previous_approximation = torch.randn(
-                    previous_config.total_num, 3, 224, 224
+                    previous_config.sample_num, 3, 224, 224
                 )
 
             dataloader = build_iter_dataloader(
@@ -303,7 +368,7 @@ def get_kd_trainer(model, dataloaders, config, teacher_model):
 
         dataloaders["prev"] = dataloader
 
-    arguments = [model, dataloaders, config, teacher_model]
+    arguments = [model, dataloaders, config, teacher_models]
 
     match config.method.name:
         case "zscl":

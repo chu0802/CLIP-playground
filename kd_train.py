@@ -22,15 +22,21 @@ def main(config):
 
         del pretrained_model
 
+    dataloaders = get_dataloaders_from_config(config)
+
+    teachers = dict()
+
     teacher_config = deepcopy(config)
 
     teacher_config.model.pretrained = "openai"
+    teachers["pretrained"] = get_model(teacher_config, device="cuda")
 
-    teacher_model = get_model(teacher_config, device="cuda")
+    if config.method.name == "previous_aware_zscl":
+        prev_teacher_config = deepcopy(config)
+        # to derive fine-tuned knowledge from teacher, we should not use pre-trained model as the teacher model.
+        teachers["prev"] = get_model(prev_teacher_config, device="cuda")
 
-    dataloaders = get_dataloaders_from_config(config)
-
-    trainer = get_kd_trainer(model, dataloaders, config, teacher_model)
+    trainer = get_kd_trainer(model, dataloaders, config, teachers)
 
     trainer.logging(
         local_desc="zero shot", test_acc=trainer.evaluate(trainer.test_loader)
