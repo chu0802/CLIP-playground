@@ -1,9 +1,13 @@
 import json
+from ast import literal_eval
 from pathlib import Path
 
 import numpy as np
+import torch
 from PIL import Image
 from torch.utils.data import Dataset
+from torchvision.datasets import ImageFolder
+from torchvision.transforms import Compose, ConvertImageDtype, PILToTensor
 
 
 def pil_loader(path: str):
@@ -77,4 +81,40 @@ class BaseClassificationDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, label
+        return image, label, index
+
+
+class ImageListDataset(BaseClassificationDataset):
+    def __init__(self, image_list_path, transform=None, seed=1102, sample_num=-1):
+        if not isinstance(image_list_path, Path):
+            image_list_path = Path(image_list_path)
+
+        self._data_list = [
+            literal_eval(line)
+            for line in image_list_path.read_text().strip().split("\n")
+        ]
+
+        self.transform = transform
+        self.rng = np.random.default_rng(seed)
+
+        if sample_num != -1:
+            sample_idx = self.rng.choice(
+                len(self._data_list), sample_num, replace=False
+            )
+            self._data_list = [self._data_list[i] for i in sample_idx]
+
+    @property
+    def class_name_list(self):
+        return None
+
+
+class NoisyImageListDataset(ImageListDataset):
+    def __init__(self, noise_path, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.noise = torch.load(noise_path)
+
+    def __getitem__(self, idx):
+        image, label, _ = super().__getitem__(idx)
+        noise = self.noise[idx]
+
+        return image, noise, label, idx
