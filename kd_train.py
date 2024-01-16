@@ -38,9 +38,9 @@ def main(config):
 
     trainer = get_kd_trainer(model, dataloaders, config, teachers)
 
-    trainer.logging(
-        local_desc="zero shot", test_acc=trainer.evaluate(trainer.test_loader)
-    )
+    # trainer.logging(
+    #     local_desc="zero shot", test_acc=trainer.evaluate(trainer.test_loader)
+    # )
 
     trainer.train(set_validation=True)
 
