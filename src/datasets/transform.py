@@ -1,5 +1,7 @@
+import torch
 from open_clip.constants import OPENAI_DATASET_MEAN, OPENAI_DATASET_STD
 from open_clip.transform import PreprocessCfg, image_transform_v2
+from torchvision.transforms import CenterCrop, Compose, ConvertImageDtype, PILToTensor
 
 DEFAULT_PREPROCESS_CONFIG = {
     "size": (224, 224),
@@ -10,6 +12,15 @@ DEFAULT_PREPROCESS_CONFIG = {
     "resize_mode": "shortest",
     "fill_color": 0,
 }
+
+
+RAW_TRANSFORM = Compose(
+    [
+        CenterCrop(224),
+        PILToTensor(),
+        ConvertImageDtype(torch.float),
+    ]
+)
 
 
 def load_transform(model_preprocess_config=None):
