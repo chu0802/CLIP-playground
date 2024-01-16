@@ -20,11 +20,8 @@ class DataIterativeLoader:
     def __next__(self):
         data = next(self.iterator)
         if isinstance(data, list):
-            x, y = data
-            x = x.to(self.device)
-            y = y.to(self.device)
-
-            return x, y
+            data = [d.to(self.device) for d in data]
+            return data
         else:
             data = data.to(self.device)
             return data
@@ -83,6 +80,7 @@ def get_dataloader(
     transform,
     sample_num=-1,
     device="cuda",
+    seed=1102,
     **dataloader_config,
 ):
     dataset_class = DATASET_MAPPING[dataset_name]
@@ -92,6 +90,7 @@ def get_dataloader(
         mode=mode,
         transform=transform,
         sample_num=sample_num,
+        seed=seed,
     )
 
     return build_iter_dataloader(dataset, **dataloader_config, device=device)

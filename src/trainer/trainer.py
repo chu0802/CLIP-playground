@@ -11,10 +11,11 @@ from tqdm import tqdm
 
 import wandb
 from src.datasets import DATASET_MAPPING
+from src.datasets.base import NoisyImageListDataset
 from src.datasets.utils import build_iter_dataloader, get_dataloader, load_transform
 from src.trainer.optimizer import get_optimizer
 from src.trainer.scheduler import CosineLRScheduler
-from src.utils import AccuracyMeter, dump_config
+from src.utils import AccuracyMeter, dump_config, inference_feature_distance
 
 
 class Trainer:
@@ -138,7 +139,7 @@ class Trainer:
 
         dataloader.init()
         with torch.no_grad(), tqdm(total=len(dataloader)) as pbar:
-            for images, labels in dataloader:
+            for images, labels, _ in dataloader:
                 preds = self.model(images).argmax(dim=1)
                 scores += preds == labels
                 pbar.set_postfix_str(f"acc: {100 * scores.acc():.2f}%")
@@ -158,7 +159,7 @@ class Trainer:
                 self.model.train()
                 self.train_loader.init()
 
-                for i, (images, labels) in enumerate(self.train_loader):
+                for i, (images, labels, _) in enumerate(self.train_loader):
                     loss_dict = self.train_step(images, labels)
 
                     pbar.set_postfix_str(
@@ -252,18 +253,20 @@ class ZSCLTrainer(KDTrainer):
     def ref_loader(self):
         return self.dataloaders["ref"]
 
-    def get_ref_data(self, loader):
+    def get_ref_data(self, loader, has_noise=False):
         try:
             ref_data = next(loader)
         except StopIteration:
             loader.init()
             ref_data = next(loader)
-        if isinstance(ref_data, (list, tuple)):
-            ref_data = ref_data[0]
-        return ref_data
+        data, index = ref_data[0], ref_data[-1]
+        if has_noise:
+            data += ref_data[1]
+
+        return data, index
 
     def zscl_loss(self, images, labels, ratio, feature_level=False, **_):
-        ref_images = self.get_ref_data(self.ref_loader)
+        ref_images, _ = self.get_ref_data(self.ref_loader)
         return self.general_kd_loss(
             images, labels, ref_images, ratio, feature_level=feature_level
         )
@@ -294,12 +297,15 @@ class PreviousAwareZSCLTrainer(ZSCLTrainer):
         ratio_prev,
         feature_level=False,
         mixup=False,
+        has_noise=False,
         **_,
     ):
         zscl_loss, loss_dict = self.zscl_loss(
             images, labels, ratio_ref, feature_level=feature_level
         )
-        previous_images = self.get_ref_data(self.previous_loader)
+        previous_images, _ = self.get_ref_data(
+            self.previous_loader, has_noise=has_noise
+        )
 
         if mixup:
             permute_images = previous_images[
@@ -334,6 +340,7 @@ def get_kd_trainer(model, dataloaders, config, teacher_models):
             root=config.data.root,
             mode=dataloader_config.split_name,
             transform=train_transform,
+            seed=config.task.seed,
             **dataloader_config,
         )
 
@@ -341,28 +348,50 @@ def get_kd_trainer(model, dataloaders, config, teacher_models):
         train_transform, _ = load_transform()
 
         previous_config = config.method.previous_config
+        strategy = config.method.selected_strategy
 
-        if config.method.previous_dataset in DATASET_MAPPING:
+        if strategy in DATASET_MAPPING:
             dataloader = get_dataloader(
-                dataset_name=config.method.previous_dataset,
+                dataset_name=strategy,
                 root=config.data.root,
                 mode=previous_config.split_name,
                 transform=train_transform,
                 **previous_config,
             )
         else:
-            if config.method.previous_dataset == "learnable_input":
+            if strategy == "learnable_input":
                 previous_approximation = (
                     torch.load("learnable_input_with_gt_labels.pt").cpu().detach()
                 )
-            else:
+            elif strategy == "random_noise":
                 previous_approximation = torch.randn(
                     previous_config.sample_num, 3, 224, 224
                 )
+            elif strategy == "from_ref_dataset":
+                dist, indices = inference_feature_distance(
+                    teacher_models["pretrained"],
+                    teacher_models["prev"],
+                    dataloaders["ref"],
+                )
+                argmax_idx = dist.argsort(descending=True)[: previous_config.sample_num]
+
+                previous_approximation = deepcopy(dataloaders["ref"].dataloader.dataset)
+                previous_approximation._data_list = [
+                    previous_approximation._data_list[indices[idx]]
+                    for idx in argmax_idx
+                ]
+            elif strategy == "pgd_attack":
+                previous_approximation = NoisyImageListDataset(
+                    noise_path="outputs/adv_images/adv_images.pt",
+                    image_list_path="largest_distance.txt",
+                    transform=train_transform,
+                )
+                previous_approximation._data_list = [
+                    previous_approximation._data_list[i] for i in range(32)
+                ]
 
             dataloader = build_iter_dataloader(
                 previous_approximation,
-                transform=train_transform,
                 **previous_config,
             )
 
