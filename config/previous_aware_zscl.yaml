@@ -1,0 +1,63 @@
+model:
+  vit_base: ViT-B-16
+  pretrained: openai
+  use_pure_clip: False
+  freeze_classification_head: True
+  wise:
+    enable: False
+    path: openai
+    ratio: 0.2
+
+method:
+  name: previous_aware_zscl
+  params:
+    feature_level: True
+    mixup: True
+    ratio_ref: 0.5
+    ratio_prev: 0.5
+  ref_dataset: imagenet
+  ref_dataset_config:
+    split_name: train
+    batch_size: 32
+    shuffle: True
+    drop_last: True
+    sample_num: 10000
+  selected_strategy: from_ref_dataset
+  previous_config:
+    split_name: train
+    sample_num: 100
+    batch_size: 32
+    shuffle: True
+    drop_last: True
+
+
+data:
+  name: flowers-102
+  root: /mnt/data/classification
+  split:
+    train:
+      split_name: train
+      batch_size: 32
+      shuffle: True
+      drop_last: True
+    val:
+      split_name: val
+      batch_size: 256
+      shuffle: False
+      drop_last: False
+    test:
+      split_name: test
+      batch_size: 256
+      shuffle: False
+      drop_last: False
+
+task:
+  # fine-tuning arguments
+  init_lrs: 0.00001
+  weight_decay: 0.0005
+  seed: 1102
+  max_epoch: 10
+  warmup_length: 0
+
+  output_dir: "outputs"
+  log_interval: 10
