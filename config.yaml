@@ -1,23 +1,29 @@
 model:
   vit_base: ViT-B-16
-  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_10.pth
-  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/caltech-101/latest/checkpoint_10.pth
+  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_10.pth
+  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/caltech-101/latest/checkpoint_10.pth
+  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/dtd/latest/checkpoint_10.pth
+  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/eurosat/latest/checkpoint_10.pth
   use_pure_clip: False
   freeze_classification_head: True
   wise:
     enable: True
-    path: openai
-    # path: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_10.pth
+    # path: openai
+    # path: /home/chuyu/vllab/clip/outputs/ViT-B-16/dtd/latest/checkpoint_10.pth
+    # path: /home/chuyu/vllab/clip/outputs/ViT-B-16/caltech-101/20231220203203/checkpoint_10.pth
+    path: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_10.pth
     ratio: 0.2
 
 method:
   name: previous_aware_zscl
+  # name: zscl
   params:
     # batch_size: 32
     # noise_ratio: 0.2
     # ratio: 0.5
     feature_level: True
     mixup: True
+    # has_noise: True
     ratio_ref: 0.5
     ratio_prev: 0.5
   ref_dataset: imagenet
@@ -26,11 +32,11 @@ method:
     batch_size: 32
     shuffle: True
     drop_last: True
-    sample_num: 100000
-  previous_dataset: synth-fgvc-aircraft
+    sample_num: 10000
+  selected_strategy: from_ref_dataset
   previous_config:
     split_name: train
-    sample_num: 32
+    sample_num: 1000
     batch_size: 32
     shuffle: True
     drop_last: True
