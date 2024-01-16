@@ -1,17 +1,17 @@
 model:
   vit_base: ViT-B-16
-  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_10.pth
-  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/caltech-101/latest/checkpoint_10.pth
+  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_10.pth
+  # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/caltech-101/latest/checkpoint_10.pth
   # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/dtd/latest/checkpoint_10.pth
   # pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/eurosat/latest/checkpoint_10.pth
   use_pure_clip: False
   freeze_classification_head: True
   wise:
     enable: True
-    # path: openai
+    path: openai
     # path: /home/chuyu/vllab/clip/outputs/ViT-B-16/dtd/latest/checkpoint_10.pth
     # path: /home/chuyu/vllab/clip/outputs/ViT-B-16/caltech-101/20231220203203/checkpoint_10.pth
-    path: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_10.pth
+    # path: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_10.pth
     ratio: 0.2
 
 method:
