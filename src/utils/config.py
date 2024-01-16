@@ -19,7 +19,7 @@ class Config:
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--cfg-path", default=f"config.yaml", help="path to configuration file."
+        "--cfg-path", default=f"config/config.yaml", help="path to configuration file."
     )
     parser.add_argument(
         "--options",
