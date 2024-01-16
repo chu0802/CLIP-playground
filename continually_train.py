@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 from pathlib import Path
 
@@ -5,11 +6,11 @@ DATASET_SEQ = [
     "fgvc-aircraft",
     "caltech-101",
     "dtd",
-    "eurosat",
     "flowers-102",
-    "oxford-pets",
-    "stanford-cars",
-    "ucf-101",
+    "fgvc-aircraft",
+    "caltech-101",
+    "dtd",
+    "flowers-102",
 ]
 OUTPUTS_ROOT = Path("outputs/ViT-B-16")
 
@@ -22,7 +23,7 @@ def start_subprocess(command, print_command=False):
     return process.wait()
 
 
-if __name__ == "__main__":
+def main(args):
     pretrained_path = "openai"
     wise_path = "openai"
 
@@ -31,6 +32,8 @@ if __name__ == "__main__":
         commands = [
             "python",
             "kd_train.py",
+            "--cfg-path",
+            args.config_path,
             "--options",
             f"data.name={dataset}",
             f"model.pretrained={pretrained_path}",
@@ -48,9 +51,20 @@ if __name__ == "__main__":
             commands = [
                 "python",
                 "evaluate.py",
+                "--cfg-path",
+                args.config_path,
                 "--options",
                 f"data.name={eval_dataset}",
                 f"model.pretrained={pretrained_path}",
                 f"model.wise.path={wise_path}",
             ]
             start_subprocess(commands, print_command=False)
+
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--config_path", type=str, default="config/default_config.yaml")
+
+    args = p.parse_args()
+
+    main(args)
