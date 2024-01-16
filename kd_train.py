@@ -42,7 +42,8 @@ def main(config):
     #     local_desc="zero shot", test_acc=trainer.evaluate(trainer.test_loader)
     # )
 
-    trainer.train(set_validation=True)
+    # validation provides nearly no information in my experiments
+    trainer.train(set_validation=False)
 
     trainer.logging(
         local_desc="fine-tuned", test_acc=trainer.evaluate(trainer.test_loader)
