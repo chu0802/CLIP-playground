@@ -31,7 +31,7 @@ def main(config):
     teacher_config.model.pretrained = "openai"
     teachers["pretrained"] = get_model(teacher_config, device="cuda")
 
-    if config.method.name == "previous_aware_zscl":
+    if config.method.name in ["previous_aware_zscl", "mix_teacher"]:
         prev_teacher_config = deepcopy(config)
         # to derive fine-tuned knowledge from teacher, we should not use pre-trained model as the teacher model.
         teachers["prev"] = get_model(prev_teacher_config, device="cuda")

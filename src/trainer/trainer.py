@@ -18,6 +18,23 @@ from src.trainer.scheduler import CosineLRScheduler
 from src.utils import AccuracyMeter, dump_config, inference_feature_distance
 
 
+class CosineSimilarityLoss(nn.CosineEmbeddingLoss):
+    def forward(self, x, y):
+        return super().forward(x, y, torch.ones(x.shape[0]).to(x.device))
+
+
+class L2Loss(nn.Module):
+    def __init__(self, reduce=None):
+        super().__init__()
+        self.reduce = reduce
+
+    def forward(self, x, y):
+        loss = torch.norm(x - y, dim=-1)
+        if self.reduce == "mean":
+            return loss.mean()
+        return loss
+
+
 class Trainer:
     def __init__(self, model, dataloaders, config):
         self.model = model
@@ -251,7 +268,7 @@ class KDTrainer(Trainer):
 class ZSCLTrainer(KDTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.feature_criterion = nn.MSELoss()
+        self.feature_criterion = L2Loss(reduce="mean")
 
     @property
     def ref_loader(self):
@@ -328,6 +345,81 @@ class PreviousAwareZSCLTrainer(ZSCLTrainer):
     def train(self, *args, **kwargs):
         self.dataloaders["prev"].init()
         super().train(*args, **kwargs)
+
+
+class MixTeacherKDTrainer(ZSCLTrainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.prev_teacher_model.eval()
+        self.feature_criterion = L2Loss(reduce=None)
+        self.num_valid_prev_data = 0
+
+    @property
+    def prev_teacher_model(self):
+        return self._teachers["prev"]
+
+    def mix_teacher_loss(
+        self,
+        images,
+        labels,
+        mixup=True,
+        ratio_prev=5,
+        ratio_pretrained=0.5,
+        threshold=0.25,
+        scale=10,
+    ):
+        ref_images, _ = self.get_ref_data(self.ref_loader)
+        base_loss = self.base_loss(images, labels)
+
+        student_logits = self.model.get_features(ref_images)
+
+        if mixup:
+            permute_images = ref_images[
+                torch.randperm(ref_images.shape[0]).to(ref_images.device)
+            ]
+            lamda = np.random.beta(1.0, 1.0)
+            ref_images = lamda * ref_images + (1 - lamda) * permute_images
+
+        with torch.no_grad():
+            pretrained_teacher_logits = self.pretrained_teacher_model.get_features(
+                ref_images
+            )
+            prev_teacher_logits = self.prev_teacher_model.get_features(ref_images)
+
+        pre_scores = torch.norm(pretrained_teacher_logits - prev_teacher_logits, dim=-1)
+
+        self.num_valid_prev_data += (pre_scores > threshold).float().sum().item()
+
+        scaled_scores = scale * (pre_scores - threshold)
+
+        scores = nn.functional.sigmoid(scaled_scores).reshape(-1, 1)
+
+        pretrained_kd_loss = self._get_kd_loss(
+            student_logits,
+            pretrained_teacher_logits,
+            feature_criterion=self.feature_criterion,
+        )
+        prev_kd_loss = self._get_kd_loss(
+            student_logits,
+            prev_teacher_logits,
+            feature_criterion=self.feature_criterion,
+        )
+
+        prev_kd_loss = (scores * prev_kd_loss).mean()
+
+        pretrained_kd_loss = ((1 - scores) * pretrained_kd_loss).mean()
+
+        return (
+            base_loss
+            + ratio_prev * prev_kd_loss
+            + ratio_pretrained * pretrained_kd_loss,
+            {
+                "base_loss": base_loss.item(),
+                "prev_kd_loss": prev_kd_loss.item(),
+                "pretrained_kd_loss": pretrained_kd_loss.item(),
+                "num_valid_prev_data": self.num_valid_prev_data,
+            },
+        )
 
 
 def get_kd_trainer(model, dataloaders, config, teacher_models):
@@ -407,5 +499,7 @@ def get_kd_trainer(model, dataloaders, config, teacher_models):
             return ZSCLTrainer(*arguments)
         case "previous_aware_zscl":
             return PreviousAwareZSCLTrainer(*arguments)
+        case "mix_teacher":
+            return MixTeacherKDTrainer(*arguments)
         case _:
             return KDTrainer(*arguments)
