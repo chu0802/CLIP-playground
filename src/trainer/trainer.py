@@ -124,9 +124,12 @@ class Trainer:
         if local_desc is not None:
             self.local_log[local_desc].update(message_dict)
 
-    def dump_results(self, filename="results.json"):
+    def dump_results(self, filename="results.json", print_result=False):
         with open(self.output_dir / filename, "w") as f:
             json.dump(self.local_log, f, indent=4)
+
+        if print_result:
+            print(json.dumps(self.local_log, indent=4))
 
     def base_loss(self, images, labels, **_):
         outputs = self.model(images)

@@ -31,7 +31,7 @@ def main(config):
         test_acc=trainer.evaluate(trainer.test_loader),
         use_wandb=False,
     )
-    trainer.dump_results()
+    trainer.dump_results(print_result=True)
 
 
 if __name__ == "__main__":

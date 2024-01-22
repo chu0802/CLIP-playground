@@ -12,6 +12,10 @@ method:
   name: mix_teacher
   params:
     mixup: False
+    ratio_prev: 5
+    ratio_pretrained: 0.5
+    threshold: 0.25
+    scale: 10
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train
@@ -21,7 +25,7 @@ method:
     sample_num: 100000
 
 data:
-  name: flowers-102
+  name: caltech-101
   root: /mnt/data/classification
   split:
     train:
