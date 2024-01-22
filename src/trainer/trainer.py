@@ -187,9 +187,9 @@ class KDTrainer(Trainer):
     def pretrained_teacher_model(self):
         return self._teachers["pretrained"]
 
-    def _get_kd_loss(self, student_logits, teacher_logits, feature_level=False):
-        if feature_level:
-            return torch.norm(student_logits - teacher_logits).mean()
+    def _get_kd_loss(self, student_logits, teacher_logits, feature_criterion=None):
+        if feature_criterion:
+            return feature_criterion(student_logits, teacher_logits)
 
         soft_labels = nn.functional.softmax(teacher_logits, dim=-1)
         soft_preds = nn.functional.log_softmax(student_logits, dim=-1)
@@ -197,12 +197,12 @@ class KDTrainer(Trainer):
         return -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
 
     def get_kd_loss(
-        self, ref_data, teacher_model=None, student_logits=None, feature_level=False
+        self, ref_data, teacher_model=None, student_logits=None, feature_criterion=None
     ):
         if student_logits is None:
             student_logits = (
                 self.model.get_features(ref_data)
-                if feature_level
+                if feature_criterion
                 else self.model(ref_data)
             )
 
@@ -211,17 +211,17 @@ class KDTrainer(Trainer):
                 teacher_model = self.pretrained_teacher_model
             teacher_logits = (
                 teacher_model.get_features(ref_data)
-                if feature_level
+                if feature_criterion
                 else teacher_model(ref_data)
             )
 
         return self._get_kd_loss(
-            student_logits, teacher_logits, feature_level=feature_level
+            student_logits, teacher_logits, feature_criterion=feature_criterion
         )
 
-    def general_kd_loss(self, images, labels, ref_data, ratio, feature_level=False):
+    def general_kd_loss(self, images, labels, ref_data, ratio, feature_criterion=None):
         base_loss = self.base_loss(images, labels)
-        kd_loss = self.get_kd_loss(ref_data, feature_level=feature_level)
+        kd_loss = self.get_kd_loss(ref_data, feature_criterion=feature_criterion)
 
         return base_loss + ratio * kd_loss, {
             "base_loss": base_loss.item(),
@@ -249,6 +249,10 @@ class KDTrainer(Trainer):
 
 
 class ZSCLTrainer(KDTrainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.feature_criterion = nn.MSELoss()
+
     @property
     def ref_loader(self):
         return self.dataloaders["ref"]
@@ -265,10 +269,10 @@ class ZSCLTrainer(KDTrainer):
 
         return data, index
 
-    def zscl_loss(self, images, labels, ratio, feature_level=False, **_):
+    def zscl_loss(self, images, labels, ratio, **_):
         ref_images, _ = self.get_ref_data(self.ref_loader)
         return self.general_kd_loss(
-            images, labels, ref_images, ratio, feature_level=feature_level
+            images, labels, ref_images, ratio, feature_criterion=self.feature_criterion
         )
 
     def train(self, *args, **kwargs):
@@ -295,13 +299,12 @@ class PreviousAwareZSCLTrainer(ZSCLTrainer):
         labels,
         ratio_ref,
         ratio_prev,
-        feature_level=False,
         mixup=False,
         has_noise=False,
         **_,
     ):
         zscl_loss, loss_dict = self.zscl_loss(
-            images, labels, ratio_ref, feature_level=feature_level
+            images, labels, ratio_ref, feature_criterion=self.feature_criterion
         )
         previous_images, _ = self.get_ref_data(
             self.previous_loader, has_noise=has_noise
@@ -317,7 +320,7 @@ class PreviousAwareZSCLTrainer(ZSCLTrainer):
         previous_loss = self.get_kd_loss(
             previous_images,
             teacher_model=self.prev_teacher_model,
-            feature_level=feature_level,
+            feature_criterion=self.feature_criterion,
         )
         loss_dict.update({"previous_loss": previous_loss.item()})
         return zscl_loss + ratio_prev * previous_loss, loss_dict

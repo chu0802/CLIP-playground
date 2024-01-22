@@ -12,7 +12,6 @@ method:
   name: zscl
   params:
     ratio: 0.5
-    feature_level: True
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train
