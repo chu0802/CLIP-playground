@@ -1,37 +1,28 @@
 model:
   vit_base: ViT-B-16
-  pretrained: openai
+  # pretrained: openai
+  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/caltech-101/latest/checkpoint_10.pth
   use_pure_clip: False
   freeze_classification_head: True
   wise:
-    enable: True
+    enable: False
     path: openai
     ratio: 0.2
 
 method:
-  name: previous_aware_zscl
+  name: zscl
   params:
-    mixup: True
-    ratio_ref: 0.5
-    ratio_prev: 0.5
+    ratio: 0.5
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train
     batch_size: 32
     shuffle: True
     drop_last: True
-    sample_num: 10000
-  selected_strategy: from_ref_dataset
-  previous_config:
-    split_name: train
-    sample_num: 100
-    batch_size: 32
-    shuffle: True
-    drop_last: True
-
+    sample_num: 100000
 
 data:
-  name: flowers-102
+  name: fgvc-aircraft
   root: /mnt/data/classification
   split:
     train:
