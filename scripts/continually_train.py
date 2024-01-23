@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from src.utils.script import evaluation_script_on_multiple_datasets, training_script
+from scripts import evaluation_script_on_multiple_datasets, training_script
 
 DATASET_SEQ = [
     "fgvc-aircraft",

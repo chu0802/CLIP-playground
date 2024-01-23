@@ -1,7 +1,7 @@
 from itertools import product
 from pathlib import Path
 
-from src.utils.script import evaluation_script_on_multiple_datasets, training_script
+from scripts import evaluation_script_on_multiple_datasets, training_script
 
 OUTPUTS_ROOT = Path("outputs/ViT-B-16")
 TRAIN_DATASET = "caltech-101"
