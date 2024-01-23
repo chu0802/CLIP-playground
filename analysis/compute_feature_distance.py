@@ -1,48 +1,39 @@
+from argparse import Namespace
+from copy import deepcopy
+
 import torch
+from omegaconf import OmegaConf
+from torch.utils.data import DataLoader
+from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 
-from src.datasets.transform import load_transform
-from src.datasets.utils import get_dataloader
-from src.models.clip import ClipBase
-from src.utils import setup_seeds
+import wandb
+from analysis.utils import TEST_CONFIG, load_model_from_pretrained, prepare_dataloader
+from src.datasets import DATASET_MAPPING
+from src.datasets.base import NoisyImageListDataset
+from src.datasets.transform import RAW_TRANSFORM, load_transform
+from src.datasets.utils import build_iter_dataloader, get_dataloader
+from src.trainer.scheduler import CosineLRScheduler
+from src.utils import inference_feature_distance, setup_seeds, wandb_logger
 
 DATA_ROOT = "/mnt/data/classification"
 
-
-def get_feature_distance(pre, fine, loader):
-    loader.init()
-    distance = []
-    pre.eval()
-    fine.eval()
-
-    with torch.no_grad():
-        for x, _ in tqdm(loader, total=len(loader)):
-            fine_features = fine(x)
-            pre_features = pre(x)
-
-            distance.append(torch.norm(fine_features - pre_features, dim=-1))
-
-    return torch.cat(distance)
+DATASET_SEQ = [
+    "fgvc-aircraft",
+    "caltech-101",
+    "dtd",
+    "eurosat",
+    "flowers-102",
+    "oxford-pets",
+    "stanford-cars",
+    "ucf-101",
+]
 
 
-if __name__ == "__main__":
-    setup_seeds(1102)
-    finetuned_model = ClipBase("ViT-B-16")
-    state_dict = torch.load(
-        "/home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_20.pth"
-    )["model"]
-    finetuned_model.model.visual.load_state_dict(state_dict)
-    finetuned_model.to("cuda")
+def main(config, seed=1102):
+    setup_seeds(seed)
 
-    pretrained_model = ClipBase("ViT-B-16", "openai").to("cuda")
-
-    train_transform, _ = load_transform()
-
-    finetuned_data_config = {
-        "batch_size": 32,
-        "shuffle": True,
-        "drop_last": False,
-    }
+    train_transform, eval_transform = load_transform()
 
     imagenet_data_config = {
         "batch_size": 32,
@@ -51,19 +42,71 @@ if __name__ == "__main__":
         "sample_num": 10000,
     }
 
-    finetuned_loader = get_dataloader(
-        "fgvc-aircraft", DATA_ROOT, "train", train_transform, **finetuned_data_config
-    )
-    imagenet_loader = get_dataloader(
-        "imagenet", DATA_ROOT, "train", train_transform, **imagenet_data_config
-    )
-
-    finetuned_data_distance = get_feature_distance(
-        pretrained_model, finetuned_model, finetuned_loader
-    )
-    imagenet_data_distance = get_feature_distance(
-        pretrained_model, finetuned_model, imagenet_loader
+    dataset = DATASET_MAPPING["imagenet"](
+        DATA_ROOT,
+        mode="train",
+        transform=train_transform,
+        sample_num=imagenet_data_config["sample_num"],
+        seed=seed,
     )
 
-    torch.save(finetuned_data_distance, "finetuned_data_distance.pt")
-    torch.save(imagenet_data_distance, "imagenet_data_distance.pt")
+    dataloader = build_iter_dataloader(
+        dataset,
+        **imagenet_data_config,
+        device="cuda",
+    )
+
+    # custom_config = {
+    #     "batch_size": 32,
+    #     "shuffle": True,
+    #     "drop_last": False,
+    #     "sample_num": -1,
+    # }
+
+    # dataset = NoisyImageListDataset(
+    #     noise_path="outputs/adv_images/adv_images.pt",
+    #     image_list_path="largest_distance.txt",
+    #     transform=train_transform,
+    # )
+    # # dataset = ImageFolder(root="outputs/adv_images", transform=RAW_TRANSFORM)
+
+    # dataloader = build_iter_dataloader(
+    #     dataset,
+    #     **custom_config,
+    #     device="cuda",
+    # )
+
+    finetuned_model = load_model_from_pretrained(config, device="cuda", freeze=True)
+    pretrained_model = load_model_from_pretrained(
+        config, device="cuda", freeze=True, pretrained=True
+    )
+
+    imagenet_data_distance, indices = inference_feature_distance(
+        pretrained_model, finetuned_model, dataloader
+    )
+
+    argmax_idx = imagenet_data_distance.argsort(descending=True)
+
+    print(imagenet_data_distance[argmax_idx[:100]])
+    print(imagenet_data_distance[argmax_idx[:100]].mean())
+    print(imagenet_data_distance[argmax_idx[:32]].mean())
+
+    for idx in argmax_idx[:100]:
+        print(dataset._data_list[indices[idx]])
+
+
+if __name__ == "__main__":
+    config = OmegaConf.create(
+        {
+            "model": {
+                "vit_base": "ViT-B-16",
+                "pretrained": "/home/chuyu/vllab/clip/outputs/ViT-B-16/caltech-101/20240123082358/checkpoint_10.pth",
+            },
+            "data": {
+                "name": "fgvc-aircraft",
+                "root": "/mnt/data/classification",
+            },
+        }
+    )
+
+    main(config)
