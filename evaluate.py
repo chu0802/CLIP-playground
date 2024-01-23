@@ -4,10 +4,9 @@ from src.datasets.utils import get_dataloaders_from_config
 from src.models.clip import get_model
 from src.models.wise import wise_ft
 from src.trainer import Trainer
-from src.utils import get_config, local_logger, setup_seeds
+from src.utils import get_config, setup_seeds
 
 
-@local_logger
 def main(config):
     setup_seeds(config.task.seed)
 
@@ -24,7 +23,7 @@ def main(config):
 
     dataloaders = get_dataloaders_from_config(config)
 
-    trainer = Trainer(model, dataloaders, config)
+    trainer = Trainer(model, dataloaders, config, dump_result=False)
 
     trainer.logging(
         local_desc="zero shot",

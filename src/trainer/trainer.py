@@ -36,24 +36,26 @@ class L2Loss(nn.Module):
 
 
 class Trainer:
-    def __init__(self, model, dataloaders, config):
+    def __init__(self, model, dataloaders, config, dump_result=True):
         self.model = model
         self.dataloaders = dataloaders
         self.config = config
         self.criterion = nn.CrossEntropyLoss()
+        self.dump_result = dump_result
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
-        self.output_dir = (
-            Path(self.config.task.output_dir)
-            / self.config.model.vit_base
-            / self.config.data.name
-            / timestamp
-        )
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.local_log = defaultdict(dict)
+        if self.dump_result or self.training_mode:
+            self.output_dir = (
+                Path(self.config.task.output_dir)
+                / self.config.model.vit_base
+                / self.config.data.name
+                / timestamp
+            )
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            dump_config(self.config, self.output_dir / "config.json")
 
-        dump_config(self.config, self.output_dir / "config.json")
+        self.local_log = defaultdict(dict)
 
         if self.training_mode:
             self.optimizer = get_optimizer(self.model, self.config.task)
@@ -125,11 +127,12 @@ class Trainer:
             self.local_log[local_desc].update(message_dict)
 
     def dump_results(self, filename="results.json", print_result=False):
-        with open(self.output_dir / filename, "w") as f:
-            json.dump(self.local_log, f, indent=4)
+        if self.dump_result:
+            with open(self.output_dir / filename, "w") as f:
+                json.dump(self.local_log, f, indent=4)
 
         if print_result:
-            print(json.dumps(self.local_log, indent=4))
+            print(json.dumps(self.local_log))
 
     def base_loss(self, images, labels, **_):
         outputs = self.model(images)
