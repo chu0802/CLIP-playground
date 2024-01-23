@@ -1,6 +1,6 @@
 model:
   vit_base: ViT-B-16
-  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/dtd/latest/checkpoint_10.pth
+  pretrained: openai
   use_pure_clip: False
   freeze_classification_head: True
   wise:
@@ -21,7 +21,7 @@ method:
     sample_num: 100000
 
 data:
-  name: flowers-102
+  name: fgvc-aircraft
   root: /mnt/data/classification
   split:
     train:

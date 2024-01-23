@@ -1,6 +1,6 @@
 model:
   vit_base: ViT-B-16
-  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_10.pth
+  pretrained: openai
   use_pure_clip: False
   freeze_classification_head: True
   wise:
@@ -25,7 +25,7 @@ method:
     sample_num: 100000
 
 data:
-  name: caltech-101
+  name: fgvc-aircraft
   root: /mnt/data/classification
   split:
     train:
