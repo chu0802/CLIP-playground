@@ -12,10 +12,10 @@ method:
   name: mix_teacher
   params:
     mixup: False
-    ratio_prev: 5
+    ratio_prev: 9
     ratio_pretrained: 0.5
-    threshold: 0.25
-    scale: 10
+    threshold: 0.2
+    scale: 6
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train

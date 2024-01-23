@@ -1,6 +1,6 @@
 model:
   vit_base: ViT-B-16
-  pretrained: openai
+  pretrained: /home/chuyu/vllab/clip/outputs/ViT-B-16/dtd/latest/checkpoint_10.pth
   use_pure_clip: False
   freeze_classification_head: True
   wise:
@@ -15,10 +15,10 @@ method:
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train
-    batch_size: 32
+    batch_size: 64
     shuffle: True
     drop_last: True
-    sample_num: 10000
+    sample_num: 100000
 
 data:
   name: flowers-102
