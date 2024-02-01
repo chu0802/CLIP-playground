@@ -24,12 +24,15 @@ class CosineSimilarityLoss(nn.CosineEmbeddingLoss):
 
 
 class L2Loss(nn.Module):
-    def __init__(self, reduce=None):
+    def __init__(self, reduce=None, square=False):
         super().__init__()
         self.reduce = reduce
+        self.square = square
 
     def forward(self, x, y):
-        loss = torch.norm(x - y, dim=-1)
+        loss = torch.pow(torch.norm(x - y, dim=-1), 2)
+        if self.square:
+            loss = loss**2
         if self.reduce == "mean":
             return loss.mean()
         return loss
@@ -357,7 +360,7 @@ class MixTeacherKDTrainer(ZSCLTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.prev_teacher_model.eval()
-        self.feature_criterion = L2Loss(reduce=None)
+        self.feature_criterion = L2Loss(reduce=None, square=True)
         self.num_valid_prev_data = 0
 
     @property
