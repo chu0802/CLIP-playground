@@ -1,6 +1,9 @@
 import json
 import subprocess
 from ast import literal_eval
+from pathlib import Path
+
+DEFAULT_OUTPUT_ROOT = Path("outputs/ViT-B-16")
 
 DEFAULT_DATASET_SEQ = [
     "fgvc-aircraft",
@@ -12,6 +15,19 @@ DEFAULT_DATASET_SEQ = [
     "stanford-cars",
     "ucf-101",
 ]
+
+
+def get_output_dataset_dir(
+    dataset, output_root=DEFAULT_OUTPUT_ROOT, timestamp="latest"
+):
+    return output_root / dataset / timestamp
+
+
+def get_model_path(
+    dataset, output_root=DEFAULT_OUTPUT_ROOT, timestamp="latest", epoch=10
+):
+    model_dir = get_output_dataset_dir(dataset, output_root, timestamp)
+    return model_dir / f"checkpoint_{epoch}.pth"
 
 
 def start_subprocess(command, print_command=False, pipe_command=None):

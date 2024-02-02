@@ -1,39 +1,42 @@
+import argparse
 from itertools import product
-from pathlib import Path
 
 from scripts import evaluation_script_on_multiple_datasets, training_script
+from scripts.utils import get_model_path, get_output_dataset_dir
 
-OUTPUTS_ROOT = Path("outputs/ViT-B-16")
-TRAIN_DATASET = "caltech-101"
-TEST_DATASET = "fgvc-aircraft"
-PRETRAINED_PATH = "outputs/ViT-B-16/fgvc-aircraft/latest/checkpoint_1.pth"
 
-if __name__ == "__main__":
-    ratio_prev_list = [9]
-    threshold_list = [0.2]
-    scale_list = [6]
+def main(args):
+    params_list_dict = {
+        "ratio_mix": list(range(1, 11)),
+    }
+    pretrained_path = get_model_path(args.pretrained_dataset)
 
-    for ratio_prev, threshold, scale in product(
-        ratio_prev_list, threshold_list, scale_list
-    ):
+    for params in product(*params_list_dict.values()):
+        params_dict = dict(zip(params_list_dict.keys(), params))
+
         training_script(
-            config_path="configs/mix_teacher_config.yaml",
+            config_path=args.config_path,
             training_script="kd_train.py",
-            dataset=TRAIN_DATASET,
-            pretrained_model_path=PRETRAINED_PATH,
-            sample_num=10,
-            max_epoch=1,
-            ratio_prev=ratio_prev,
-            threshold=threshold,
-            scale=scale,
+            dataset=args.dataset,
+            pretrained_model_path=pretrained_path,
+            **params_dict,
         )
 
-        model_path = OUTPUTS_ROOT / TRAIN_DATASET / "latest" / "checkpoint_1.pth"
-        eval_result_path = OUTPUTS_ROOT / TRAIN_DATASET / "latest" / "eval_results.json"
+        model_path = get_model_path(args.dataset)
+        eval_result_path = get_output_dataset_dir(args.dataset) / "eval_results.json"
 
-        eval_results = evaluation_script_on_multiple_datasets(
-            datasets=[TEST_DATASET],
+        evaluation_script_on_multiple_datasets(
             pretrained_model_path=model_path,
-            sample_num=10,
             dump_result_path=eval_result_path,
         )
+
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--config_path", type=str, default="configs/mix_teacher_config.yaml")
+    p.add_argument("--pretrained_dataset", type=str, default="fgvc-aircraft")
+    p.add_argument("--dataset", type=str, default="caltech-101")
+
+    args = p.parse_args()
+
+    main(args)
