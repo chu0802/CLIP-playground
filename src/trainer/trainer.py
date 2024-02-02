@@ -360,7 +360,7 @@ class MixTeacherKDTrainer(ZSCLTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.prev_teacher_model.eval()
-        self.feature_criterion = L2Loss(reduce=None, square=True)
+        self.feature_criterion = L2Loss(reduce=None, square=False)
         self.num_valid_prev_data = 0
 
     @property
@@ -383,16 +383,19 @@ class MixTeacherKDTrainer(ZSCLTrainer):
         prev_teacher_logits,
         threshold=0.2,
         scale=6,
-        ratio_prev=9,
-        ratio_pretrained=0.5,
+        normalize=False,
     ):
         scores = self.scoring_function(
             pretrained_teacher_logits, prev_teacher_logits, threshold, scale
         )
         mix_teacher_feature = (
-            ratio_pretrained * (1 - scores) * pretrained_teacher_logits
-            + ratio_prev * scores * prev_teacher_logits
-        )
+            1 - scores
+        ) * pretrained_teacher_logits + scores * prev_teacher_logits
+
+        if normalize:
+            mix_teacher_feature = torch.nn.functional.normalize(
+                mix_teacher_feature, p=2, dim=1
+            )
 
         return mix_teacher_feature
 
@@ -400,23 +403,15 @@ class MixTeacherKDTrainer(ZSCLTrainer):
         self,
         images,
         labels,
-        mixup=True,
-        ratio_prev=9,
-        ratio_pretrained=0.5,
         threshold=0.2,
         scale=6,
+        ratio_mix=2,
+        normalize=False,
     ):
         ref_images, _ = self.get_ref_data(self.ref_loader)
         base_loss = self.base_loss(images, labels)
 
         student_logits = self.model.get_features(ref_images)
-
-        if mixup:
-            permute_images = ref_images[
-                torch.randperm(ref_images.shape[0]).to(ref_images.device)
-            ]
-            lamda = np.random.beta(1.0, 1.0)
-            ref_images = lamda * ref_images + (1 - lamda) * permute_images
 
         with torch.no_grad():
             pretrained_teacher_logits = self.pretrained_teacher_model.get_features(
@@ -429,19 +424,16 @@ class MixTeacherKDTrainer(ZSCLTrainer):
             prev_teacher_logits,
             threshold,
             scale,
-            ratio_prev,
-            ratio_pretrained,
+            normalize=normalize,
         )
 
-        mix_teacher_loss = torch.sqrt(
-            self._get_kd_loss(
-                student_logits,
-                mix_teacher_feature,
-                feature_criterion=self.feature_criterion,
-            )
+        mix_teacher_loss = self._get_kd_loss(
+            student_logits,
+            mix_teacher_feature,
+            feature_criterion=self.feature_criterion,
         ).mean()
 
-        return base_loss + mix_teacher_loss, {
+        return base_loss + ratio_mix * mix_teacher_loss, {
             "base_loss": base_loss.item(),
             "mix_teacher_loss": mix_teacher_loss.item(),
             "num_valid_prev_data": self.num_valid_prev_data,

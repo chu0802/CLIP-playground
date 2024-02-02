@@ -11,11 +11,10 @@ model:
 method:
   name: mix_teacher
   params:
-    mixup: False
-    ratio_prev: 9
-    ratio_pretrained: 0.5
+    ratio_mix: 9
     threshold: 0.2
     scale: 6
+    normalize: True
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train
