@@ -7,8 +7,8 @@ from scripts.utils import get_model_path, get_output_dataset_dir
 
 def main(args):
     params_list_dict = {
-        "ratio_mix": [10],
-        "normalize": [False],
+        "params.ratio_mix": [10],
+        "params.normalize": [False],
     }
     pretrained_path = get_model_path(args.pretrained_dataset)
 

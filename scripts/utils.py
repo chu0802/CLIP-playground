@@ -24,8 +24,10 @@ def get_output_dataset_dir(
 
 
 def get_model_path(
-    dataset, output_root=DEFAULT_OUTPUT_ROOT, timestamp="latest", epoch=10
+    dataset=None, output_root=DEFAULT_OUTPUT_ROOT, timestamp="latest", epoch=10
 ):
+    if dataset is None:
+        return "openai"
     model_dir = get_output_dataset_dir(dataset, output_root, timestamp)
     return model_dir / f"checkpoint_{epoch}.pth"
 
@@ -51,7 +53,7 @@ def training_script(
     pretrained_model_path="openai",
     sample_num=-1,
     max_epoch=10,
-    **method_params,
+    **method_config,
 ):
     command = [
         "python",
@@ -65,8 +67,8 @@ def training_script(
         f"task.max_epoch={max_epoch}",
     ]
 
-    if len(method_params) > 0:
-        command += [f"method.params.{k}={v}" for k, v in method_params.items()]
+    if len(method_config) > 0:
+        command += [f"method.{k}={v}" for k, v in method_config.items()]
 
     start_subprocess(command, print_command=True)
 
