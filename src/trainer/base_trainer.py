@@ -14,7 +14,7 @@ from src.utils import AccuracyMeter, dump_config
 
 class BaseTrainer:
     def __init__(self, model, dataloaders, config, dump_result=True):
-        self.model = model
+        self._model = model
         self.dataloaders = dataloaders
         self.config = config
         self.criterion = nn.CrossEntropyLoss()
@@ -35,7 +35,7 @@ class BaseTrainer:
         self.local_log = defaultdict(dict)
 
         if self.training_mode:
-            self.optimizer = get_optimizer(self.model, self.config.task)
+            self.optimizer = get_optimizer(self.train_model, self.config.task)
             self.lr_scheduler = CosineLRScheduler(
                 self.optimizer, self.config.task, self.num_total_train_steps
             )
@@ -49,7 +49,7 @@ class BaseTrainer:
 
     def save(self, epoch):
         # TODO: check if freeze classification head or not
-        visual_state_dict = self.model.clip_base.model.visual.state_dict()
+        visual_state_dict = self.eval_model.clip_base.model.visual.state_dict()
 
         save_obj = {"model": visual_state_dict}
 
@@ -57,6 +57,14 @@ class BaseTrainer:
 
         print(f"Saving checkpoint at epoch {epoch} to {save_path}.")
         torch.save(save_obj, save_path)
+
+    @property
+    def eval_model(self):
+        return self._model
+
+    @property
+    def train_model(self):
+        return self._model
 
     @property
     def method_config(self):
@@ -112,7 +120,7 @@ class BaseTrainer:
             print(json.dumps(self.local_log))
 
     def base_loss(self, images, labels, **_):
-        outputs = self.model(images)
+        outputs = self.train_model(images)
         return self.criterion(outputs, labels)
 
     def train_step(self, images, labels):
@@ -133,14 +141,14 @@ class BaseTrainer:
         if dataloader is None:
             dataloader = self.test_loader
 
-        self.model.eval()
+        self.eval_model.eval()
 
         scores = AccuracyMeter()
 
         dataloader.init()
         with torch.no_grad(), tqdm(total=len(dataloader)) as pbar:
             for images, labels, _ in dataloader:
-                preds = self.model(images).argmax(dim=1)
+                preds = self.eval_model(images).argmax(dim=1)
                 scores += preds == labels
                 pbar.set_postfix_str(f"acc: {100 * scores.acc():.2f}%")
                 pbar.update(1)
@@ -156,7 +164,7 @@ class BaseTrainer:
             for epoch in range(1, self.max_epoch + 1):
                 pbar.set_description(f"Epoch {epoch}/{self.max_epoch}: ")
 
-                self.model.train()
+                self.train_model.train()
                 self.train_loader.init()
 
                 for i, (images, labels, _) in enumerate(self.train_loader):
@@ -201,9 +209,9 @@ class BaseKDTrainer(BaseTrainer):
     ):
         if student_logits is None:
             student_logits = (
-                self.model.get_features(ref_data)
+                self.train_model.get_features(ref_data)
                 if feature_criterion
-                else self.model(ref_data)
+                else self.train_model(ref_data)
             )
 
         with torch.no_grad():
@@ -233,7 +241,7 @@ class BaseKDTrainer(BaseTrainer):
         return self.general_kd_loss(images, labels, random_noise, ratio)
 
     def lwf_loss(self, images, labels, ratio, **_):
-        student_logits = self.model(images)
+        student_logits = self.train_model(images)
         base_loss = self.criterion(student_logits, labels)
         kd_loss = self.get_kd_loss(ref_data=images, student_logits=student_logits)
 

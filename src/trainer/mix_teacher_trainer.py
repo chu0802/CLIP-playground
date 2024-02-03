@@ -60,7 +60,7 @@ class MixTeacherKDTrainer(ZSCLTrainer):
         ref_images, _ = self.get_ref_data(self.ref_loader)
         base_loss = self.base_loss(images, labels)
 
-        student_logits = self.model.get_features(ref_images)
+        student_logits = self.train_model.get_features(ref_images)
 
         with torch.no_grad():
             pretrained_teacher_logits = self.pretrained_teacher_model.get_features(

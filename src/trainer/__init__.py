@@ -9,7 +9,14 @@ from src.utils import inference_feature_distance
 
 from .base_trainer import BaseKDTrainer, BaseTrainer
 from .mix_teacher_trainer import MixTeacherKDTrainer
+from .we_trainer import get_weight_ensemble_trainer_class
 from .zscl_trainer import PreviousAwareZSCLTrainer, ZSCLTrainer
+
+TRAINER_MAPPING = {
+    "zscl": ZSCLTrainer,
+    "previous_aware_zscl": PreviousAwareZSCLTrainer,
+    "mix_teacher": MixTeacherKDTrainer,
+}
 
 
 def get_kd_trainer(model, dataloaders, config, teacher_models):
@@ -82,14 +89,12 @@ def get_kd_trainer(model, dataloaders, config, teacher_models):
 
         dataloaders["prev"] = dataloader
 
-    arguments = [model, dataloaders, config, teacher_models]
+    meta_trainer_class = TRAINER_MAPPING.get(config.method.name, BaseKDTrainer)
 
-    match config.method.name:
-        case "zscl":
-            return ZSCLTrainer(*arguments)
-        case "previous_aware_zscl":
-            return PreviousAwareZSCLTrainer(*arguments)
-        case "mix_teacher":
-            return MixTeacherKDTrainer(*arguments)
-        case _:
-            return BaseKDTrainer(*arguments)
+    if (
+        config.method.get("weight_space_config", False)
+        and config.method.weight_space_config.enable
+    ):
+        meta_trainer_class = get_weight_ensemble_trainer_class(meta_trainer_class)
+
+    return meta_trainer_class(model, dataloaders, config, teacher_models)
