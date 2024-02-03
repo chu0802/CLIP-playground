@@ -3,7 +3,7 @@ from copy import deepcopy
 from src.datasets.utils import get_dataloaders_from_config
 from src.models.clip import get_model
 from src.models.wise import wise_ft
-from src.trainer import Trainer
+from src.trainer import BaseTrainer as Trainer
 from src.utils import get_config, setup_seeds, wandb_logger
 
 

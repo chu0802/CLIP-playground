@@ -1,4 +1,43 @@
+import logging
+
 import numpy as np
+import torch
+import torch.nn as nn
+
+
+class CosineSimilarityLoss(nn.CosineEmbeddingLoss):
+    def forward(self, x, y):
+        return super().forward(x, y, torch.ones(x.shape[0]).to(x.device))
+
+
+class L2Loss(nn.Module):
+    def __init__(self, reduce=None, square=False):
+        super().__init__()
+        self.reduce = reduce
+        self.square = square
+
+    def forward(self, x, y):
+        loss = torch.pow(torch.norm(x - y, dim=-1), 2)
+        if self.square:
+            loss = loss**2
+        if self.reduce == "mean":
+            return loss.mean()
+        return loss
+
+
+def get_optimizer(model, task_config):
+    optim_params = model.get_params()
+
+    num_parameters = 0
+    for param_group in optim_params:
+        for p in param_group["params"]:
+            num_parameters += p.data.nelement()
+    logging.info(f"number of trainable parameters: {num_parameters}")
+
+    return torch.optim.AdamW(
+        optim_params,
+        weight_decay=float(task_config.weight_decay),
+    )
 
 
 class CosineLRScheduler(object):
