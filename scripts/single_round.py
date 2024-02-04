@@ -1,26 +1,13 @@
 import argparse
 
-from scripts import evaluation_script_on_multiple_datasets, training_script
-from scripts.utils import get_model_path, get_output_dataset_dir
+from scripts.utils import train_and_eval_script
 
 
 def main(args):
-    pretrained_path = get_model_path(args.pretrained_dataset)
-
-    training_script(
+    train_and_eval_script(
         config_path=args.config_path,
-        training_script="kd_train.py",
-        dataset=args.dataset,
-        pretrained_model_path=pretrained_path,
-    )
-
-    # evaluation
-    model_path = get_model_path(args.dataset)
-    eval_result_path = get_output_dataset_dir(args.dataset) / "eval_results.json"
-
-    evaluation_script_on_multiple_datasets(
-        pretrained_model_path=model_path,
-        dump_result_path=eval_result_path,
+        training_dataset=args.dataset,
+        pretrained_dataset=args.pretrained_dataset,
     )
 
 

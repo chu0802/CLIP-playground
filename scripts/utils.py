@@ -2,6 +2,7 @@ import json
 import subprocess
 from ast import literal_eval
 from pathlib import Path
+from typing import List
 
 DEFAULT_OUTPUT_ROOT = Path("outputs/ViT-B-16")
 
@@ -15,6 +16,85 @@ DEFAULT_DATASET_SEQ = [
     "stanford-cars",
     "ucf-101",
 ]
+
+
+class ContinualTrainer:
+    def __init__(
+        self,
+        config_path: str = "configs/mix_teacher_config.yaml",
+        training_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
+        eval_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
+        dump_results: bool = True,
+    ):
+        self.config_path = config_path
+        self.training_dataset_seq = training_dataset_seq
+        self.eval_dataset_seq = eval_dataset_seq
+        self.dump_results = dump_results
+
+        if self.dump_results:
+            self.output_path = (
+                Path("outputs") / Path(self.config_path).stem / "final_results.json"
+            )
+            self.output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def aggregate_results(self):
+        results_dict = dict()
+        for dataset in self.training_dataset_seq:
+            eval_result_path = get_output_dataset_dir(dataset) / "eval_results.json"
+
+            with eval_result_path.open("r") as f:
+                results = json.load(f)
+
+            results_dict[dataset] = results
+
+        return results_dict
+
+    def format_results(self, res_dict, pad=4, decimal=2):
+        longest_training_dataset_name_len = max(
+            [len(k) for k in self.training_dataset_seq]
+        )
+        lines = []
+        lines.append(
+            (" " * pad).join(
+                [" " * longest_training_dataset_name_len]
+                + [
+                    f"%{max(len(dataset), 5)}s" % (dataset)
+                    for dataset in self.eval_dataset_seq
+                ]
+            )
+        )
+
+        for training_dataset in self.training_dataset_seq:
+            line = [f"%{longest_training_dataset_name_len}s" % (training_dataset)]
+            line += [
+                f"%{len(eval_dataset)}s"
+                % (f"{100*res_dict[training_dataset][eval_dataset]:.{decimal}f}")
+                for eval_dataset in self.eval_dataset_seq
+            ]
+            lines.append((" " * pad).join(line))
+
+        return "\n".join(lines) + "\n"
+
+    def train_and_eval(self, pretrained_dataset=None, format=True):
+        for training_dataset in self.training_dataset_seq:
+            train_and_eval_script(
+                config_path=self.config_path,
+                training_dataset=training_dataset,
+                pretrained_dataset=pretrained_dataset,
+                eval_dataset_seq=self.eval_dataset_seq,
+            )
+            pretrained_dataset = training_dataset
+
+        res = self.aggregate_results()
+
+        if self.dump_results:
+            with self.output_path.open("w") as f:
+                json.dump(res, f, indent=4)
+
+        if format:
+            print(self.format_results(res))
+
+        return res
 
 
 def get_output_dataset_dir(
@@ -46,9 +126,37 @@ def start_subprocess(command, print_command=False, pipe_command=None):
     return output.decode("utf-8")
 
 
+def train_and_eval_script(
+    config_path: str = "configs/mix_teacher_config.yaml",
+    training_module: str = "main.kd_train",
+    training_dataset: str = "fgvc-aircraft",
+    pretrained_dataset: str = None,
+    eval_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
+    **method_config,
+):
+    pretrained_model_path = get_model_path(pretrained_dataset)
+
+    training_script(
+        config_path=config_path,
+        training_module=training_module,
+        dataset=training_dataset,
+        pretrained_model_path=pretrained_model_path,
+        **method_config,
+    )
+
+    model_path = get_model_path(training_dataset)
+    eval_results_path = get_output_dataset_dir(training_dataset) / "eval_results.json"
+
+    eval_on_multiple_datasets_script(
+        datasets=eval_dataset_seq,
+        pretrained_model_path=model_path,
+        dump_result_path=eval_results_path,
+    )
+
+
 def training_script(
     config_path,
-    training_script="kd_train.py",
+    training_module="main.kd_train",
     dataset="fgvc-aircraft",
     pretrained_model_path="openai",
     sample_num=-1,
@@ -57,7 +165,8 @@ def training_script(
 ):
     command = [
         "python",
-        training_script,
+        "-m",
+        training_module,
         "--cfg-path",
         config_path,
         "--options",
@@ -73,8 +182,9 @@ def training_script(
     start_subprocess(command, print_command=True)
 
 
-def evaluation_script_on_multiple_datasets(
+def eval_on_multiple_datasets_script(
     config_path="configs/inference_config.yaml",
+    eval_module="main.evaluate",
     datasets=DEFAULT_DATASET_SEQ,
     pretrained_model_path="openai",
     sample_num=-1,
@@ -84,7 +194,8 @@ def evaluation_script_on_multiple_datasets(
     for eval_dataset in datasets:
         command = [
             "python",
-            "evaluate.py",
+            "-m",
+            eval_module,
             "--cfg-path",
             config_path,
             "--options",

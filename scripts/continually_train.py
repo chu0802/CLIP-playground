@@ -1,53 +1,26 @@
 import argparse
-from pathlib import Path
 
-from scripts import evaluation_script_on_multiple_datasets, training_script
-
-DATASET_SEQ = [
-    "fgvc-aircraft",
-    "caltech-101",
-    "dtd",
-    "eurosat",
-    "flowers-102",
-    "oxford-pets",
-    "stanford-cars",
-    "ucf-101",
-]
-
-OUTPUTS_ROOT = Path("outputs/ViT-B-16")
+from scripts.utils import DEFAULT_DATASET_SEQ, ContinualTrainer
 
 
 def main(args):
-    pretrained_path = "openai"
+    continual_trainer = ContinualTrainer(
+        config_path=args.config_path,
+        training_dataset_seq=args.dataset_seq.split(","),
+    )
 
-    for dataset in DATASET_SEQ:
-        # training
-        training_script(
-            config_path=args.config_path,
-            training_script="kd_train.py",
-            dataset=dataset,
-            pretrained_model_path=pretrained_path,
-            sample_num=10,
-            max_epoch=1,
-        )
-
-        # evaluation
-        pretrained_path = OUTPUTS_ROOT / dataset / "latest" / "checkpoint_1.pth"
-        eval_results_path = OUTPUTS_ROOT / dataset / "latest" / "eval_results.json"
-
-        evaluation_script_on_multiple_datasets(
-            pretrained_model_path=pretrained_path,
-            sample_num=10,
-            dump_result_path=eval_results_path,
-        )
-
-        break
+    continual_trainer.train_and_eval()
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config_path", type=str, default="configs/mix_teacher_config.yaml")
-
+    p.add_argument(
+        "--dataset_seq",
+        type=str,
+        default=",".join(DEFAULT_DATASET_SEQ),
+        help="the sequence of training datasets, splitted by comma",
+    )
     args = p.parse_args()
 
     main(args)
