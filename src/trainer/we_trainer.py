@@ -36,7 +36,7 @@ def get_weight_ensemble_trainer_class(meta_trainer_class):
         def train_step(self, images, labels):
             loss_dict = super().train_step(images, labels)
 
-            if self.weight_update_counter % self.weight_space_config.interval == 0:
+            if self.current_num_iterations % self.weight_space_config.interval == 0:
                 self.weight_update_counter += 1
                 merge_we(
                     self._model, self._we_model, sma_count=self.weight_update_counter
