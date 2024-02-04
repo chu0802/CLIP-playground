@@ -5,6 +5,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from tqdm import tqdm
 
 import wandb
@@ -17,8 +18,8 @@ class BaseTrainer:
         self._model = model
         self.dataloaders = dataloaders
         self.config = config
-        self.criterion = nn.CrossEntropyLoss()
         self.dump_result = dump_result
+        self._current_num_iterations = 0
 
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
@@ -75,6 +76,14 @@ class BaseTrainer:
         return self.config.mode == "train"
 
     @property
+    def current_num_iterations(self):
+        return self._current_num_iterations
+
+    @current_num_iterations.setter
+    def current_num_iterations(self, value):
+        self._current_num_iterations = value
+
+    @property
     def num_total_train_steps(self):
         return self.max_epoch * len(self.train_loader)
 
@@ -119,11 +128,12 @@ class BaseTrainer:
         if print_result:
             print(json.dumps(self.local_log))
 
-    def base_loss(self, images, labels, **_):
+    def base_loss(self, images, labels, label_smoothing=0.2, **_):
         outputs = self.train_model(images)
-        return self.criterion(outputs, labels)
+        return F.cross_entropy(outputs, labels, label_smoothing=label_smoothing)
 
     def train_step(self, images, labels):
+        self.current_num_iterations += 1
         # need to step lr_scheduler first since in this repo I didn't explictly set a learning rate in the optimizer.
         self.lr_scheduler.step()
 
@@ -227,8 +237,16 @@ class BaseKDTrainer(BaseTrainer):
             student_logits, teacher_logits, feature_criterion=feature_criterion
         )
 
-    def general_kd_loss(self, images, labels, ref_data, ratio, feature_criterion=None):
-        base_loss = self.base_loss(images, labels)
+    def general_kd_loss(
+        self,
+        images,
+        labels,
+        ref_data,
+        ratio,
+        label_smoothing=0.2,
+        feature_criterion=None,
+    ):
+        base_loss = self.base_loss(images, labels, label_smoothing=label_smoothing)
         kd_loss = self.get_kd_loss(ref_data, feature_criterion=feature_criterion)
 
         return base_loss + ratio * kd_loss, {
@@ -236,13 +254,19 @@ class BaseKDTrainer(BaseTrainer):
             "kd_loss": kd_loss.item(),
         }
 
-    def random_kd_loss(self, images, labels, batch_size, ratio, **_):
+    def random_kd_loss(
+        self, images, labels, batch_size, ratio, label_smoothing=0.2, **_
+    ):
         random_noise = torch.rand(batch_size, *images.shape[1:]).to(images.device)
-        return self.general_kd_loss(images, labels, random_noise, ratio)
+        return self.general_kd_loss(
+            images, labels, random_noise, ratio, label_smoothing=label_smoothing
+        )
 
-    def lwf_loss(self, images, labels, ratio, **_):
+    def lwf_loss(self, images, labels, ratio, label_smoothing=0.2, **_):
         student_logits = self.train_model(images)
-        base_loss = self.criterion(student_logits, labels)
+        base_loss = F.cross_entropy(
+            student_logits, labels, label_smoothing=label_smoothing
+        )
         kd_loss = self.get_kd_loss(ref_data=images, student_logits=student_logits)
 
         return base_loss + ratio * kd_loss, {
@@ -250,7 +274,11 @@ class BaseKDTrainer(BaseTrainer):
             "kd_loss": kd_loss.item(),
         }
 
-    def lwf_random_loss(self, images, labels, noise_ratio=0.5, ratio=0.2, **_):
+    def lwf_random_loss(
+        self, images, labels, noise_ratio=0.5, ratio=0.2, label_smoothing=0.2, **_
+    ):
         random_gaussian_noise = torch.randn(*images.shape, device=images.device)
         mix_images = (1 - noise_ratio) * images + noise_ratio * random_gaussian_noise
-        return self.general_kd_loss(images, labels, mix_images, ratio)
+        return self.general_kd_loss(
+            images, labels, mix_images, ratio, label_smoothing=label_smoothing
+        )

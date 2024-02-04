@@ -56,9 +56,10 @@ class MixTeacherKDTrainer(ZSCLTrainer):
         scale=6,
         ratio_mix=2,
         normalize=False,
+        label_smoothing=0.2,
     ):
         ref_images, _ = self.get_ref_data(self.ref_loader)
-        base_loss = self.base_loss(images, labels)
+        base_loss = self.base_loss(images, labels, label_smoothing=label_smoothing)
 
         student_logits = self.train_model.get_features(ref_images)
 

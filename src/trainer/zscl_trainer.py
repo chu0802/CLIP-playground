@@ -26,10 +26,15 @@ class ZSCLTrainer(BaseKDTrainer):
 
         return data, index
 
-    def zscl_loss(self, images, labels, ratio, **_):
+    def zscl_loss(self, images, labels, ratio, label_smoothing=0.2, **_):
         ref_images, _ = self.get_ref_data(self.ref_loader)
         return self.general_kd_loss(
-            images, labels, ref_images, ratio, feature_criterion=self.feature_criterion
+            images,
+            labels,
+            ref_images,
+            ratio,
+            feature_criterion=self.feature_criterion,
+            label_smoothing=label_smoothing,
         )
 
     def train(self, *args, **kwargs):
@@ -58,10 +63,15 @@ class PreviousAwareZSCLTrainer(ZSCLTrainer):
         ratio_prev,
         mixup=False,
         has_noise=False,
+        label_smoothing=0.2,
         **_,
     ):
         zscl_loss, loss_dict = self.zscl_loss(
-            images, labels, ratio_ref, feature_criterion=self.feature_criterion
+            images,
+            labels,
+            ratio_ref,
+            feature_criterion=self.feature_criterion,
+            label_smoothing=label_smoothing,
         )
         previous_images, _ = self.get_ref_data(
             self.previous_loader, has_noise=has_noise

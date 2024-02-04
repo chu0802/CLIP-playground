@@ -15,6 +15,7 @@ method:
     threshold: 0.2
     scale: 6
     normalize: True
+    label_smoothing: 0.2
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train

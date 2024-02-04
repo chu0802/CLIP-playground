@@ -12,6 +12,7 @@ method:
   name: zscl
   params:
     ratio: 0.5
+    label_smoothing: 0.2
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train
