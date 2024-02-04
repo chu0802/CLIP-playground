@@ -23,6 +23,9 @@ method:
     shuffle: True
     drop_last: True
     sample_num: 100000
+  weight_space_config:
+    enable: True
+    interval: 100
 
 data:
   name: fgvc-aircraft
