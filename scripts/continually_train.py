@@ -9,7 +9,7 @@ def main(args):
         training_dataset_seq=args.dataset_seq.split(","),
     )
 
-    continual_trainer.train_and_eval()
+    continual_trainer.train_and_eval(args.pretrained_dataset)
 
 
 if __name__ == "__main__":
@@ -21,6 +21,7 @@ if __name__ == "__main__":
         default=",".join(DEFAULT_DATASET_SEQ),
         help="the sequence of training datasets, splitted by comma",
     )
+    p.add_argument("--pretrained_dataset", type=str, default=None)
     args = p.parse_args()
 
     main(args)
