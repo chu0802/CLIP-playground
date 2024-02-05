@@ -141,6 +141,8 @@ def train_and_eval_script(
     training_dataset: str = "fgvc-aircraft",
     pretrained_dataset: str = None,
     eval_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
+    sample_num: int = -1,
+    max_epoch: int = 10,
     **method_config,
 ):
     pretrained_model_path = get_model_path(pretrained_dataset)
@@ -150,6 +152,8 @@ def train_and_eval_script(
         training_module=training_module,
         dataset=training_dataset,
         pretrained_model_path=pretrained_model_path,
+        sample_num=sample_num,
+        max_epoch=max_epoch,
         **method_config,
     )
 
