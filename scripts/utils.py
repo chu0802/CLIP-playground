@@ -32,10 +32,8 @@ class ContinualTrainer:
         self.dump_results = dump_results
 
         if self.dump_results:
-            self.output_path = (
-                Path("outputs") / Path(self.config_path).stem / "final_results.json"
-            )
-            self.output_path.parent.mkdir(parents=True, exist_ok=True)
+            self.output_dir = Path("outputs") / Path(self.config_path).stem
+            self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def aggregate_results(self):
         results_dict = dict()
@@ -88,11 +86,14 @@ class ContinualTrainer:
         res = self.aggregate_results()
 
         if self.dump_results:
-            with self.output_path.open("w") as f:
+            with (self.output_dir / "final_results.json").open("w") as f:
                 json.dump(res, f, indent=4)
 
         if format:
-            print(self.format_results(res))
+            formatted_results = self.format_results(res)
+            with (self.output_dir / "formatted_results.txt").open("w") as f:
+                f.write(formatted_results)
+            print(formatted_results)
 
         return res
 
