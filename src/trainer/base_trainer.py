@@ -48,11 +48,14 @@ class BaseTrainer:
 
             self.lastest_dir.symlink_to(self.output_dir.name)
 
-    def save(self, epoch):
+    def save(self, epoch=None):
         # TODO: check if freeze classification head or not
         visual_state_dict = self.eval_model.clip_base.model.visual.state_dict()
 
         save_obj = {"model": visual_state_dict}
+
+        if not epoch:
+            epoch = "latest"
 
         save_path = self.output_dir / f"checkpoint_{epoch}.pth"
 
@@ -85,11 +88,15 @@ class BaseTrainer:
 
     @property
     def num_total_train_steps(self):
-        return self.max_epoch * len(self.train_loader)
+        return min(self.max_epoch * len(self.train_loader), self.max_iterations)
 
     @property
     def max_epoch(self):
         return self.config.task.max_epoch
+
+    @property
+    def max_iterations(self):
+        return self.config.task.max_iterations
 
     @property
     def lr(self):
@@ -171,6 +178,8 @@ class BaseTrainer:
             self.logging(val_acc=self.evaluate(self.val_loader))
 
         with tqdm(total=self.num_total_train_steps) as pbar:
+
+            # TODO: make this double for-loop a single for-loop
             for epoch in range(1, self.max_epoch + 1):
                 pbar.set_description(f"Epoch {epoch}/{self.max_epoch}: ")
 
@@ -188,8 +197,15 @@ class BaseTrainer:
                     if i % self.log_interval == 0:
                         self.logging(lr=self.lr, **loss_dict)
 
+                    if self.current_num_iterations >= self.num_total_train_steps:
+                        break
+
                 if self.val_loader and set_validation:
                     self.logging(val_acc=self.evaluate(self.val_loader))
+
+                if self.current_num_iterations >= self.num_total_train_steps:
+                    self.save(epoch=None)
+                    break
 
                 self.save(epoch)
 

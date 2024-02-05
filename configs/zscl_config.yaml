@@ -50,6 +50,7 @@ task:
   weight_decay: 0.0005
   seed: 1102
   max_epoch: 10
+  max_iterations: 1000
   warmup_length: 0
 
   output_dir: "outputs"

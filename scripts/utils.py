@@ -2,7 +2,7 @@ import json
 import subprocess
 from ast import literal_eval
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 DEFAULT_OUTPUT_ROOT = Path("outputs/ViT-B-16")
 
@@ -114,7 +114,7 @@ def get_output_dataset_dir(
 
 
 def get_model_path(
-    dataset=None, output_root=DEFAULT_OUTPUT_ROOT, timestamp="latest", epoch=10
+    dataset=None, output_root=DEFAULT_OUTPUT_ROOT, timestamp="latest", epoch="latest"
 ):
     if dataset is None:
         return "openai"
@@ -144,7 +144,8 @@ def train_and_eval_script(
     eval_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
     sample_num: int = -1,
     max_epoch: int = 10,
-    eval_epoch: int = 10,
+    max_iterations: int = 1000,
+    eval_epoch: Union[int, str] = "latest",
     **method_config,
 ):
     pretrained_model_path = get_model_path(pretrained_dataset)
@@ -156,6 +157,7 @@ def train_and_eval_script(
         pretrained_model_path=pretrained_model_path,
         sample_num=sample_num,
         max_epoch=max_epoch,
+        max_iterations=max_iterations,
         **method_config,
     )
 
@@ -176,6 +178,7 @@ def training_script(
     pretrained_model_path="openai",
     sample_num=-1,
     max_epoch=10,
+    max_iterations=1000,
     **method_config,
 ):
     command = [
@@ -189,6 +192,7 @@ def training_script(
         f"model.pretrained={pretrained_model_path}",
         f"data.sample_num={sample_num}",
         f"task.max_epoch={max_epoch}",
+        f"task.max_iterations={max_iterations}",
     ]
 
     if len(method_config) > 0:
