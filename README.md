@@ -4,7 +4,7 @@ The official Pytorch implementation of "Dual-Teacher Memory Retrieval for Contin
 
 ## Usage
 
-This repo support 2 scripts for easy access, every script is modulized: 
+This repo supports 2 scripts for easy access, every script is modulized: 
 
 ### Training and evaluate on all datasets
 ```bash
