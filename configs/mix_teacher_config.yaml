@@ -11,7 +11,7 @@ model:
 method:
   name: mix_teacher
   params:
-    ratio_mix: 9
+    ratio_mix: 10
     threshold: 0.2
     scale: 6
     normalize: True
@@ -24,7 +24,7 @@ method:
     drop_last: True
     sample_num: 100000
   weight_space_config:
-    enable: True
+    enable: False
     interval: 100
 
 data:
