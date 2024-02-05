@@ -35,9 +35,10 @@ class ContinualTrainer:
             self.output_dir = Path("outputs") / Path(self.config_path).stem
             self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def aggregate_results(self):
+    @classmethod
+    def aggregate_results(self, training_dataset_seq):
         results_dict = dict()
-        for dataset in self.training_dataset_seq:
+        for dataset in training_dataset_seq:
             eval_result_path = get_output_dataset_dir(dataset) / "eval_results.json"
 
             with eval_result_path.open("r") as f:
@@ -89,7 +90,7 @@ class ContinualTrainer:
             )
             pretrained_dataset = training_dataset
 
-        res = self.aggregate_results()
+        res = self.aggregate_results(training_dataset_seq=self.training_dataset_seq)
 
         if self.dump_results:
             with (self.output_dir / "final_results.json").open("w") as f:
