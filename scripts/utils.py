@@ -143,6 +143,7 @@ def train_and_eval_script(
     eval_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
     sample_num: int = -1,
     max_epoch: int = 10,
+    eval_epoch: int = 10,
     **method_config,
 ):
     pretrained_model_path = get_model_path(pretrained_dataset)
@@ -157,7 +158,7 @@ def train_and_eval_script(
         **method_config,
     )
 
-    model_path = get_model_path(training_dataset)
+    model_path = get_model_path(training_dataset, epoch=eval_epoch)
     eval_results_path = get_output_dataset_dir(training_dataset) / "eval_results.json"
 
     eval_on_multiple_datasets_script(

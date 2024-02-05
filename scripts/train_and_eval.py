@@ -8,6 +8,7 @@ def main(args):
         config_path=args.config_path,
         training_dataset=args.dataset,
         pretrained_dataset=args.pretrained_dataset,
+        eval_epoch=args.eval_epoch,
     )
 
 
@@ -16,6 +17,12 @@ if __name__ == "__main__":
     p.add_argument("--config_path", type=str, default="configs/mix_teacher_config.yaml")
     p.add_argument("--pretrained_dataset", type=str, default="fgvc-aircraft")
     p.add_argument("--dataset", type=str, default="caltech-101")
+    p.add_argument(
+        "--eval_epoch",
+        type=int,
+        default=10,
+        help="determine to use the model saved in which epoches to evaluate",
+    )
 
     args = p.parse_args()
 
