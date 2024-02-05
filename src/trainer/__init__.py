@@ -8,7 +8,7 @@ from src.datasets.utils import build_iter_dataloader, get_dataloader, load_trans
 from src.utils import inference_feature_distance
 
 from .base_trainer import BaseKDTrainer, BaseTrainer
-from .mix_teacher_trainer import MixTeacherKDTrainer
+from .mix_teacher_trainer import MixTeacherKDTrainer, SplitTeacherKDTrainer
 from .we_trainer import get_weight_ensemble_trainer_class
 from .zscl_trainer import PreviousAwareZSCLTrainer, ZSCLTrainer
 
@@ -16,6 +16,7 @@ TRAINER_MAPPING = {
     "zscl": ZSCLTrainer,
     "previous_aware_zscl": PreviousAwareZSCLTrainer,
     "mix_teacher": MixTeacherKDTrainer,
+    "split_teacher": SplitTeacherKDTrainer,
 }
 
 
