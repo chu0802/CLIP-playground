@@ -47,27 +47,33 @@ class ContinualTrainer:
 
         return results_dict
 
-    def format_results(self, res_dict, pad=4, decimal=2):
-        longest_training_dataset_name_len = max(
-            [len(k) for k in self.training_dataset_seq]
-        )
+    @classmethod
+    def format_results(
+        self,
+        res_dict,
+        training_dataset_seq,
+        eval_dataset_seq,
+        pad=4,
+        decimal=2,
+    ):
+        longest_training_dataset_name_len = max([len(k) for k in training_dataset_seq])
         lines = []
         lines.append(
             (" " * pad).join(
                 [" " * longest_training_dataset_name_len]
                 + [
                     f"%{max(len(dataset), 5)}s" % (dataset)
-                    for dataset in self.eval_dataset_seq
+                    for dataset in eval_dataset_seq
                 ]
             )
         )
 
-        for training_dataset in self.training_dataset_seq:
+        for training_dataset in training_dataset_seq:
             line = [f"%{longest_training_dataset_name_len}s" % (training_dataset)]
             line += [
                 f"%{len(eval_dataset)}s"
                 % (f"{100*res_dict[training_dataset][eval_dataset]:.{decimal}f}")
-                for eval_dataset in self.eval_dataset_seq
+                for eval_dataset in eval_dataset_seq
             ]
             lines.append((" " * pad).join(line))
 
@@ -90,7 +96,9 @@ class ContinualTrainer:
                 json.dump(res, f, indent=4)
 
         if format:
-            formatted_results = self.format_results(res)
+            formatted_results = self.format_results(
+                res, self.training_dataset_seq, self.eval_dataset_seq
+            )
             with (self.output_dir / "formatted_results.txt").open("w") as f:
                 f.write(formatted_results)
             print(formatted_results)
