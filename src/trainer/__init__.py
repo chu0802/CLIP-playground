@@ -1,7 +1,7 @@
 from src.datasets import DATASET_MAPPING
 from src.datasets.utils import get_dataloader, load_transform
 
-from .base_trainer import BaseKDTrainer
+from .base_trainer import BaseKDTrainer, BaseTrainer
 from .mix_teacher_trainer import MixTeacherKDTrainer, SplitTeacherKDTrainer
 from .we_trainer import get_weight_ensemble_trainer_class
 from .zscl_trainer import PreviousAwareZSCLTrainer, ZSCLTrainer

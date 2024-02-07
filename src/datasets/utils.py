@@ -130,7 +130,7 @@ def get_dataloaders_from_config(config, device="cuda"):
             transform=train_transform if dataloader_type == "train" else eval_transform,
             sample_num=config.data.get("sample_num", -1),
             device=device,
-            distributed=config.task.distributed,
+            distributed=config.task.get("distributed", False),
             **dataloader_config,
         )
 
