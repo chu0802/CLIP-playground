@@ -25,11 +25,19 @@ class ContinualTrainer:
         training_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
         eval_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
         dump_results: bool = True,
+        distributed: bool = False,
+        nnodes: int = 1,
+        nproc_per_node: int = 1,
     ):
         self.config_path = config_path
         self.training_dataset_seq = training_dataset_seq
         self.eval_dataset_seq = eval_dataset_seq
         self.dump_results = dump_results
+        self.distributed_config = {
+            distributed: distributed,
+            nnodes: nnodes,
+            nproc_per_node: nproc_per_node,
+        }
 
         if self.dump_results:
             self.output_dir = Path("outputs") / Path(self.config_path).stem
@@ -87,6 +95,7 @@ class ContinualTrainer:
                 training_dataset=training_dataset,
                 pretrained_dataset=pretrained_dataset,
                 eval_dataset_seq=self.eval_dataset_seq,
+                **self.distributed_config,
             )
             pretrained_dataset = training_dataset
 
@@ -122,23 +131,18 @@ def get_model_path(
     return model_dir / f"checkpoint_{epoch}.pth"
 
 
-def start_subprocess(command, print_command=False, pipe_command=None):
+def start_subprocess(command, print_command=False):
+    command = " ".join(command)
     if print_command:
-        print(" ".join(command) + "\n")
-
-    if pipe_command:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE)
-        output = subprocess.check_output(pipe_command, stdin=process.stdout)
-        process.wait()
-    else:
-        output = subprocess.check_output(command)
+        print(command + "\n")
+    output = subprocess.check_output(command, shell=True)
 
     return output.decode("utf-8")
 
 
 def train_and_eval_script(
     config_path: str = "configs/mix_teacher_config.yaml",
-    training_module: str = "main.kd_train",
+    training_module: str = "main.train",
     training_dataset: str = "fgvc-aircraft",
     pretrained_dataset: str = None,
     eval_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
@@ -146,6 +150,9 @@ def train_and_eval_script(
     max_epoch: int = 10,
     max_iterations: int = 1000,
     eval_epoch: Union[int, str] = "latest",
+    distributed=False,
+    nnodes=1,
+    nproc_per_node=1,
     **method_config,
 ):
     pretrained_model_path = get_model_path(pretrained_dataset)
@@ -158,6 +165,9 @@ def train_and_eval_script(
         sample_num=sample_num,
         max_epoch=max_epoch,
         max_iterations=max_iterations,
+        distributed=distributed,
+        nnodes=nnodes,
+        nproc_per_node=nproc_per_node,
         **method_config,
     )
 
@@ -173,16 +183,24 @@ def train_and_eval_script(
 
 def training_script(
     config_path,
-    training_module="main.kd_train",
+    training_module="main.train",
     dataset="fgvc-aircraft",
     pretrained_model_path="openai",
     sample_num=-1,
     max_epoch=10,
     max_iterations=1000,
+    distributed=False,
+    nnodes=1,
+    nproc_per_node=1,
     **method_config,
 ):
+    runner = (
+        "python"
+        if not distributed
+        else f"torchrun --nnodes={nnodes} --nproc_per_node={nproc_per_node}"
+    )
     command = [
-        "python",
+        runner,
         "-m",
         training_module,
         "--cfg-path",

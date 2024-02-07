@@ -10,25 +10,23 @@ from tqdm import tqdm
 
 import wandb
 from src.trainer.utils import CosineLRScheduler, get_optimizer
-from src.utils import AccuracyMeter, dump_config
+from src.utils import AccuracyMeter, dump_config, main_process
 
 
 class BaseTrainer:
-    def __init__(self, model, dataloaders, config, dump_result=True):
+    def __init__(self, model, dataloaders, config, dump_result=True, job_id=None):
         self._model = model
         self.dataloaders = dataloaders
         self.config = config
         self.dump_result = dump_result
         self._current_num_iterations = 0
 
-        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-
-        if self.dump_result or self.training_mode:
+        if (self.dump_result or self.training_mode) and job_id:
             self.output_dir = (
                 Path(self.config.task.output_dir)
                 / self.config.model.vit_base
                 / self.config.data.name
-                / timestamp
+                / job_id
             )
             self.output_dir.mkdir(parents=True, exist_ok=True)
             dump_config(self.config, self.output_dir / "config.json")
@@ -36,7 +34,9 @@ class BaseTrainer:
         self.local_log = defaultdict(dict)
 
         if self.training_mode:
-            self.optimizer = get_optimizer(self.train_model, self.config.task)
+            self.optimizer = get_optimizer(
+                self.unwrapped_model(self.train_model), self.config.task
+            )
             self.lr_scheduler = CosineLRScheduler(
                 self.optimizer, self.config.task, self.num_total_train_steps
             )
@@ -48,9 +48,13 @@ class BaseTrainer:
 
             self.lastest_dir.symlink_to(self.output_dir.name)
 
+    @main_process
     def save(self, epoch=None):
         # TODO: check if freeze classification head or not
-        visual_state_dict = self.eval_model.clip_base.model.visual.state_dict()
+
+        unwrapped_eval_model = self.unwrapped_model(self.eval_model)
+
+        visual_state_dict = unwrapped_eval_model.clip_base.model.state_dict()
 
         save_obj = {"model": visual_state_dict}
 
@@ -61,6 +65,10 @@ class BaseTrainer:
 
         print(f"Saving checkpoint at epoch {epoch} to {save_path}.")
         torch.save(save_obj, save_path)
+
+    @property
+    def distributed(self):
+        return self.config.task.get("distributed", False)
 
     @property
     def eval_model(self):
@@ -121,12 +129,14 @@ class BaseTrainer:
     def get_current_training_step(self, epoch, local_step):
         return len(self.train_loader) * (epoch - 1) + local_step
 
+    @main_process
     def logging(self, local_desc=None, use_wandb=True, **message_dict):
         if use_wandb:
             wandb.log(message_dict)
         if local_desc is not None:
             self.local_log[local_desc].update(message_dict)
 
+    @main_process
     def dump_results(self, filename="results.json", print_result=False):
         if self.dump_result:
             with open(self.output_dir / filename, "w") as f:
@@ -134,6 +144,12 @@ class BaseTrainer:
 
         if print_result:
             print(json.dumps(self.local_log))
+
+    def unwrapped_model(self, model):
+        if self.distributed:
+            return model.module
+        else:
+            return model
 
     def base_loss(self, images, labels, label_smoothing=0.2, **_):
         outputs = self.train_model(images)
@@ -207,12 +223,15 @@ class BaseTrainer:
                     self.save(epoch=None)
                     break
 
+                if self.distributed:
+                    self.train_loader.set_epoch(epoch)
+
                 self.save(epoch)
 
 
 class BaseKDTrainer(BaseTrainer):
-    def __init__(self, model, dataloaders, config, teachers):
-        super().__init__(model, dataloaders, config)
+    def __init__(self, model, dataloaders, config, teachers, job_id=None):
+        super().__init__(model, dataloaders, config, job_id=job_id)
         self._teachers = teachers
         self.pretrained_teacher_model.eval()
         self.kl_criterion = nn.KLDivLoss()
@@ -234,20 +253,11 @@ class BaseKDTrainer(BaseTrainer):
         self, ref_data, teacher_model=None, student_logits=None, feature_criterion=None
     ):
         if student_logits is None:
-            student_logits = (
-                self.train_model.get_features(ref_data)
-                if feature_criterion
-                else self.train_model(ref_data)
-            )
-
+            student_logits = self.train_model(ref_data, get_features=feature_criterion)
         with torch.no_grad():
             if teacher_model is None:
                 teacher_model = self.pretrained_teacher_model
-            teacher_logits = (
-                teacher_model.get_features(ref_data)
-                if feature_criterion
-                else teacher_model(ref_data)
-            )
+            teacher_logits = teacher_model(ref_data, get_features=feature_criterion)
 
         return self._get_kd_loss(
             student_logits, teacher_logits, feature_criterion=feature_criterion

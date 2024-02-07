@@ -1,10 +1,11 @@
 import json
 from pathlib import Path
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 
 from src.datasets import DATASET_MAPPING
 from src.datasets.transform import load_transform
+from src.utils import get_rank, get_world_size
 
 
 class DataIterativeLoader:
@@ -13,6 +14,10 @@ class DataIterativeLoader:
         self.dataloader = dataloader
         self.iterator = None
         self.device = device
+
+    def set_epoch(self, epoch):
+        if hasattr(self.dataloader.sampler, "set_epoch"):
+            self.dataloader.sampler.set_epoch(epoch)
 
     def init(self):
         self.iterator = iter(self.dataloader)
@@ -40,13 +45,24 @@ def build_dataloader(
     pin_memory=True,
     shuffle=False,
     drop_last=False,
+    distributed=False,
 ):
+    if distributed:
+        sampler = DistributedSampler(
+            dataset,
+            shuffle=shuffle,
+            num_replicas=get_world_size(),
+            rank=get_rank(),
+        )
+    else:
+        sampler = None
     return DataLoader(
         dataset,
         batch_size=batch_size,
         num_workers=num_workers,
         pin_memory=pin_memory,
-        shuffle=shuffle,
+        sampler=sampler,
+        shuffle=shuffle and not distributed,
         drop_last=drop_last,
     )
 
@@ -59,6 +75,7 @@ def build_iter_dataloader(
     shuffle=False,
     drop_last=False,
     device="cuda",
+    distributed=False,
     **kwargs,
 ):
     dataloader = build_dataloader(
@@ -68,6 +85,7 @@ def build_iter_dataloader(
         pin_memory=pin_memory,
         shuffle=shuffle,
         drop_last=drop_last,
+        distributed=distributed,
     )
 
     return DataIterativeLoader(dataloader, device=device)
@@ -81,6 +99,7 @@ def get_dataloader(
     sample_num=-1,
     device="cuda",
     seed=1102,
+    distributed=False,
     **dataloader_config,
 ):
     dataset_class = DATASET_MAPPING[dataset_name]
@@ -93,7 +112,10 @@ def get_dataloader(
         seed=seed,
     )
 
-    return build_iter_dataloader(dataset, **dataloader_config, device=device)
+    distributed = distributed and mode == "train"
+    return build_iter_dataloader(
+        dataset, **dataloader_config, device=device, distributed=distributed
+    )
 
 
 def get_dataloaders_from_config(config, device="cuda"):
@@ -108,6 +130,7 @@ def get_dataloaders_from_config(config, device="cuda"):
             transform=train_transform if dataloader_type == "train" else eval_transform,
             sample_num=config.data.get("sample_num", -1),
             device=device,
+            distributed=config.task.get("distributed", False),
             **dataloader_config,
         )
 
