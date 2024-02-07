@@ -11,7 +11,7 @@ def main(config):
 
     dataloaders = get_dataloaders_from_config(config)
 
-    trainer = Trainer(model, dataloaders, config, dump_result=False)
+    trainer = Trainer(model, dataloaders, config)
 
     trainer.logging(
         local_desc="zero shot",

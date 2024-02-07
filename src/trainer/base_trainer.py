@@ -10,18 +10,17 @@ from tqdm import tqdm
 
 import wandb
 from src.trainer.utils import CosineLRScheduler, get_optimizer
-from src.utils import AccuracyMeter, dump_config, main_process
+from src.utils import AccuracyMeter, dump_config, main_process, is_main_process
 
 
 class BaseTrainer:
-    def __init__(self, model, dataloaders, config, dump_result=True, job_id=None):
+    def __init__(self, model, dataloaders, config, job_id=None):
         self._model = model
         self.dataloaders = dataloaders
         self.config = config
-        self.dump_result = dump_result
         self._current_num_iterations = 0
 
-        if (self.dump_result or self.training_mode) and job_id:
+        if self.training_mode and job_id:
             self.output_dir = (
                 Path(self.config.task.output_dir)
                 / self.config.model.vit_base
@@ -30,6 +29,14 @@ class BaseTrainer:
             )
             self.output_dir.mkdir(parents=True, exist_ok=True)
             dump_config(self.config, self.output_dir / "config.json")
+            
+            self.lastest_dir = self.output_dir.parent / "latest"
+
+            if self.lastest_dir.exists():
+                # unlink it since it's a symbolic link
+                self.lastest_dir.unlink()
+
+            self.lastest_dir.symlink_to(self.output_dir.name)
 
         self.local_log = defaultdict(dict)
 
@@ -40,13 +47,7 @@ class BaseTrainer:
             self.lr_scheduler = CosineLRScheduler(
                 self.optimizer, self.config.task, self.num_total_train_steps
             )
-            self.lastest_dir = self.output_dir.parent / "latest"
-
-            if self.lastest_dir.exists():
-                # unlink it since it's a symbolic link
-                self.lastest_dir.unlink()
-
-            self.lastest_dir.symlink_to(self.output_dir.name)
+            
 
     @main_process
     def save(self, epoch=None):
@@ -138,7 +139,7 @@ class BaseTrainer:
 
     @main_process
     def dump_results(self, filename="results.json", print_result=False):
-        if self.dump_result:
+        if self.training_mode:
             with open(self.output_dir / filename, "w") as f:
                 json.dump(self.local_log, f, indent=4)
 
@@ -216,7 +217,7 @@ class BaseTrainer:
                     if self.current_num_iterations >= self.num_total_train_steps:
                         break
 
-                if self.val_loader and set_validation:
+                if self.val_loader and set_validation and is_main_process():
                     self.logging(val_acc=self.evaluate(self.val_loader))
 
                 if self.current_num_iterations >= self.num_total_train_steps:
