@@ -172,16 +172,18 @@ def get_model(config, device="cuda", template_list=SIMPLE_TEMPLATE_LIST):
     ).to(device)
 
 
-def load_model_from_pretrained(config, device="cuda", freeze=True, pretrained=False):
+def load_model_from_pretrained(config, device="cuda", freeze=False, pretrained=False):
     if pretrained:
         config.model.pretrained = "openai"
 
     model = get_model(config, device=device)
 
     if freeze:
+        for _, v in model.named_parameters():
+            v.requires_grad = False
         model.eval()
 
-    if config.task.get("distributed", False):
+    if config.task.get("distributed", False) and not freeze:
         model = nn.parallel.DistributedDataParallel(model)
 
     return model
