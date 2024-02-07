@@ -61,13 +61,13 @@ class MixTeacherKDTrainer(ZSCLTrainer):
         ref_images, _ = self.get_ref_data(self.ref_loader)
         base_loss = self.base_loss(images, labels, label_smoothing=label_smoothing)
 
-        student_logits = self.train_model.get_features(ref_images)
+        student_logits = self.train_model(ref_images, get_features=True)
 
         with torch.no_grad():
-            pretrained_teacher_logits = self.pretrained_teacher_model.get_features(
-                ref_images
+            pretrained_teacher_logits = self.pretrained_teacher_model(
+                ref_images, get_features=True
             )
-            prev_teacher_logits = self.prev_teacher_model.get_features(ref_images)
+            prev_teacher_logits = self.prev_teacher_model(ref_images, get_features=True)
 
         mix_teacher_feature = self.get_mix_teacher_feature(
             pretrained_teacher_logits,
@@ -104,13 +104,13 @@ class SplitTeacherKDTrainer(MixTeacherKDTrainer):
         ref_images, _ = self.get_ref_data(self.ref_loader)
         base_loss = self.base_loss(images, labels, label_smoothing=label_smoothing)
 
-        student_logits = self.train_model.get_features(ref_images)
+        student_logits = self.train_model(ref_images, get_features=True)
 
         with torch.no_grad():
-            pretrained_teacher_logits = self.pretrained_teacher_model.get_features(
-                ref_images
+            pretrained_teacher_logits = self.pretrained_teacher_model(
+                ref_images, get_features=True
             )
-            prev_teacher_logits = self.prev_teacher_model.get_features(ref_images)
+            prev_teacher_logits = self.prev_teacher_model(ref_images, get_features=True)
 
         pre_scores = torch.norm(pretrained_teacher_logits - prev_teacher_logits, dim=-1)
 

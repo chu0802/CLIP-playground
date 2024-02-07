@@ -1,13 +1,7 @@
-from copy import deepcopy
-
-import torch
-
 from src.datasets import DATASET_MAPPING
-from src.datasets.base import NoisyImageListDataset
-from src.datasets.utils import build_iter_dataloader, get_dataloader, load_transform
-from src.utils import inference_feature_distance
+from src.datasets.utils import get_dataloader, load_transform
 
-from .base_trainer import BaseKDTrainer, BaseTrainer
+from .base_trainer import BaseKDTrainer
 from .mix_teacher_trainer import MixTeacherKDTrainer, SplitTeacherKDTrainer
 from .we_trainer import get_weight_ensemble_trainer_class
 from .zscl_trainer import PreviousAwareZSCLTrainer, ZSCLTrainer
@@ -20,7 +14,7 @@ TRAINER_MAPPING = {
 }
 
 
-def get_kd_trainer(model, dataloaders, config, teacher_models):
+def get_kd_trainer(model, dataloaders, config, teacher_models, job_id=None):
     if "ref_dataset" in config.method:
         train_transform, _ = load_transform()
         dataset_name, dataloader_config = (
@@ -51,42 +45,6 @@ def get_kd_trainer(model, dataloaders, config, teacher_models):
                 transform=train_transform,
                 **previous_config,
             )
-        else:
-            if strategy == "learnable_input":
-                previous_approximation = (
-                    torch.load("learnable_input_with_gt_labels.pt").cpu().detach()
-                )
-            elif strategy == "random_noise":
-                previous_approximation = torch.randn(
-                    previous_config.sample_num, 3, 224, 224
-                )
-            elif strategy == "from_ref_dataset":
-                dist, indices = inference_feature_distance(
-                    teacher_models["pretrained"],
-                    teacher_models["prev"],
-                    dataloaders["ref"],
-                )
-                argmax_idx = dist.argsort(descending=True)[: previous_config.sample_num]
-
-                previous_approximation = deepcopy(dataloaders["ref"].dataloader.dataset)
-                previous_approximation._data_list = [
-                    previous_approximation._data_list[indices[idx]]
-                    for idx in argmax_idx
-                ]
-            elif strategy == "pgd_attack":
-                previous_approximation = NoisyImageListDataset(
-                    noise_path="outputs/adv_images/adv_images.pt",
-                    image_list_path="largest_distance.txt",
-                    transform=train_transform,
-                )
-                previous_approximation._data_list = [
-                    previous_approximation._data_list[i] for i in range(32)
-                ]
-
-            dataloader = build_iter_dataloader(
-                previous_approximation,
-                **previous_config,
-            )
 
         dataloaders["prev"] = dataloader
 
@@ -98,4 +56,4 @@ def get_kd_trainer(model, dataloaders, config, teacher_models):
     ):
         meta_trainer_class = get_weight_ensemble_trainer_class(meta_trainer_class)
 
-    return meta_trainer_class(model, dataloaders, config, teacher_models)
+    return meta_trainer_class(model, dataloaders, config, teacher_models, job_id)

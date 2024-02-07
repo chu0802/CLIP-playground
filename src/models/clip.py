@@ -1,10 +1,27 @@
+from copy import deepcopy
+
 import open_clip
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from tqdm import tqdm
 
 from src.datasets.utils import load_class_name_list
 from src.template import SIMPLE_TEMPLATE_LIST, ClassTemplate
+
+
+class VisualClipBase(nn.Module):
+    def __init__(self, visual_model):
+        super().__init__()
+        self.model = visual_model
+
+    @property
+    def preprocess_config(self):
+        return self.model.preprocess_cfg
+
+    def forward(self, images, normalize=True):
+        features = self.model(images)
+        return F.normalize(features, dim=-1) if normalize else features
 
 
 class ClipBase(nn.Module):
@@ -21,7 +38,8 @@ class ClipBase(nn.Module):
         return self.model.visual.preprocess_cfg
 
     def forward(self, images, normalize=True):
-        return self.model.encode_image(images, normalize=normalize)
+        features = self.model.visual(images)
+        return F.normalize(features, dim=-1) if normalize else features
 
 
 # take text embeddings as a linear layer
@@ -63,15 +81,15 @@ class ClipClassifier(nn.Module):
     def get_prediction_from_features(self, feats):
         return self.classification_head(feats)
 
-    def get_features(self, images):
-        return self.clip_base(images)
-
-    def forward(self, images):
-        return self.classification_head(self.clip_base(images))
+    def forward(self, images, get_features=False):
+        features = self.clip_base(images)
+        if get_features:
+            return features
+        return self.classification_head(features)
 
     def get_params(self):
         clip_base_params = [
-            p for p in self.clip_base.model.visual.parameters() if p.requires_grad
+            p for p in self.clip_base.model.parameters() if p.requires_grad
         ]
 
         if self.freeze_classification_head:
@@ -127,6 +145,7 @@ def get_model(config, device="cuda", template_list=SIMPLE_TEMPLATE_LIST):
 
     model_name, pretrained = model_config.vit_base, model_config.pretrained
 
+    # produce classification head
     if (model_name, pretrained) in open_clip.list_pretrained():
         clip_base = ClipBase(model_config.vit_base, model_config.pretrained).to(device)
     else:
@@ -142,11 +161,30 @@ def get_model(config, device="cuda", template_list=SIMPLE_TEMPLATE_LIST):
 
     classification_head = ClassificationHead.initialize(class_name_list, class_template)
 
+    visual_clip_base = VisualClipBase(deepcopy(clip_base.model.visual))
+
+    del clip_base
+
     return ClipClassifier(
-        clip_base,
+        visual_clip_base,
         classification_head,
         model_config.get("freeze_classification_head", False),
     ).to(device)
+
+
+def load_model_from_pretrained(config, device="cuda", freeze=True, pretrained=False):
+    if pretrained:
+        config.model.pretrained = "openai"
+
+    model = get_model(config, device=device)
+
+    if freeze:
+        model.eval()
+
+    if config.task.get("distributed", False):
+        model = nn.parallel.DistributedDataParallel(model)
+
+    return model
 
 
 if __name__ == "__main__":

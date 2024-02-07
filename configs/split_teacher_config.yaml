@@ -58,3 +58,8 @@ task:
 
   output_dir: "outputs"
   log_interval: 10
+
+  world_size: 1
+  dist_url: "env://"
+  distributed: True
+  use_dist_eval_sampler: False

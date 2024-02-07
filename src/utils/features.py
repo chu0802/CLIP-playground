@@ -23,8 +23,8 @@ def inference_feature_distance(pretrained_model, finetuned_model, dataloader):
                 else:
                     data = data[0]
 
-            finetuned_features = finetuned_model.get_features(data)
-            pretrained_features = pretrained_model.get_features(data)
+            finetuned_features = finetuned_model(data, get_features=True)
+            pretrained_features = pretrained_model(data, get_features=True)
 
             distance.append(torch.norm(finetuned_features - pretrained_features, dim=1))
             indices.append(index)
