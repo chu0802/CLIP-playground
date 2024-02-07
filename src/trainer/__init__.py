@@ -28,6 +28,7 @@ def get_kd_trainer(model, dataloaders, config, teacher_models, job_id=None):
             mode=dataloader_config.split_name,
             transform=train_transform,
             seed=config.task.seed,
+            distributed=config.task.get("distributed", False),
             **dataloader_config,
         )
 

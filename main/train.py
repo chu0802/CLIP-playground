@@ -9,13 +9,13 @@ from src.utils import (
     init_distributed_mode,
     setup_seeds,
     wandb_logger,
+    is_main_process,
 )
 
 
 @wandb_logger
 def main(config):
-    job_id = get_job_id()
-    init_distributed_mode(config.task)
+    job_id = get_job_id() if is_main_process() else None
     setup_seeds(config.task.seed)
 
     model = load_model_from_pretrained(config, device="cuda", freeze=False)
@@ -46,4 +46,5 @@ def main(config):
 
 if __name__ == "__main__":
     config = get_config(mode="train")
+    init_distributed_mode(config.task)
     main(config)

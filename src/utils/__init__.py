@@ -6,6 +6,7 @@ from .dist_utils import (
     init_distributed_mode,
     main_process,
     setup_seeds,
+    is_main_process,
 )
 from .features import inference_feature_distance
 from .metrics import AccuracyMeter

@@ -9,6 +9,7 @@ class ZSCLTrainer(BaseKDTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.feature_criterion = L2Loss(reduce="mean")
+        self.epoch_counter = 0
 
     @property
     def ref_loader(self):
@@ -18,8 +19,13 @@ class ZSCLTrainer(BaseKDTrainer):
         try:
             ref_data = next(loader)
         except StopIteration:
+            self.epoch_counter += 1
             loader.init()
             ref_data = next(loader)
+            
+            if self.distributed:
+                self.ref_loader.set_epoch(self.epoch_counter)
+
         data, index = ref_data[0], ref_data[-1]
         if has_noise:
             data += ref_data[1]
