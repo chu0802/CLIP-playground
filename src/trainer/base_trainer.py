@@ -23,7 +23,6 @@ class BaseTrainer:
         if self.training_mode and job_id:
             self.output_dir = (
                 Path(self.config.task.output_dir)
-                / self.config.model.vit_base
                 / self.config.data.name
                 / job_id
             )
@@ -227,7 +226,7 @@ class BaseTrainer:
                 if self.distributed:
                     self.train_loader.set_epoch(epoch)
 
-                self.save(epoch)
+                # self.save(epoch)
 
 
 class BaseKDTrainer(BaseTrainer):

@@ -4,7 +4,7 @@ from ast import literal_eval
 from pathlib import Path
 from typing import List, Union
 
-DEFAULT_OUTPUT_ROOT = Path("outputs/ViT-B-16")
+DEFAULT_OUTPUT_ROOT = Path("outputs")
 
 DEFAULT_DATASET_SEQ = [
     "fgvc-aircraft",
@@ -23,31 +23,34 @@ class ContinualTrainer:
         self,
         config_path: str = "configs/mix_teacher_config.yaml",
         training_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
-        eval_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
-        dump_results: bool = True,
+        eval_dataset_seq: List[str] = None,
+        order: int = 0,
         distributed: bool = False,
         nnodes: int = 1,
         nproc_per_node: int = 1,
     ):
         self.config_path = config_path
         self.training_dataset_seq = training_dataset_seq
-        self.eval_dataset_seq = eval_dataset_seq
-        self.dump_results = dump_results
+        self.eval_dataset_seq = (
+            training_dataset_seq
+            if eval_dataset_seq is None
+            else eval_dataset_seq
+        )
         self.distributed_config = {
-            distributed: distributed,
-            nnodes: nnodes,
-            nproc_per_node: nproc_per_node,
+            "distributed": distributed,
+            "nnodes": nnodes,
+            "nproc_per_node": nproc_per_node,
         }
+        self.sub_output_dir = f"order_{order}"
 
-        if self.dump_results:
-            self.output_dir = Path("outputs") / Path(self.config_path).stem
-            self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir = DEFAULT_OUTPUT_ROOT / self.sub_output_dir / Path(self.config_path).stem
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def aggregate_results(self, training_dataset_seq):
+    def aggregate_results(self, training_dataset_seq, ouptut_root):
         results_dict = dict()
         for dataset in training_dataset_seq:
-            eval_result_path = get_output_dataset_dir(dataset) / "eval_results.json"
+            eval_result_path = get_output_dataset_dir(dataset, output_root=ouptut_root) / "eval_results.json"
 
             with eval_result_path.open("r") as f:
                 results = json.load(f)
@@ -95,15 +98,15 @@ class ContinualTrainer:
                 training_dataset=training_dataset,
                 pretrained_dataset=pretrained_dataset,
                 eval_dataset_seq=self.eval_dataset_seq,
+                sub_output_dir=self.sub_output_dir,
                 **self.distributed_config,
             )
             pretrained_dataset = training_dataset
 
-        res = self.aggregate_results(training_dataset_seq=self.training_dataset_seq)
+        res = self.aggregate_results(training_dataset_seq=self.training_dataset_seq, ouptut_root=self.output_dir.parent)
 
-        if self.dump_results:
-            with (self.output_dir / "final_results.json").open("w") as f:
-                json.dump(res, f, indent=4)
+        with (self.output_dir / "final_results.json").open("w") as f:
+            json.dump(res, f, indent=4)
 
         if format:
             formatted_results = self.format_results(
@@ -149,13 +152,15 @@ def train_and_eval_script(
     sample_num: int = -1,
     max_epoch: int = 10,
     max_iterations: int = 1000,
+    sub_output_dir: str = "default",
     eval_epoch: Union[int, str] = "latest",
     distributed=False,
     nnodes=1,
     nproc_per_node=1,
     **method_config,
 ):
-    pretrained_model_path = get_model_path(pretrained_dataset)
+    output_root = DEFAULT_OUTPUT_ROOT / sub_output_dir
+    pretrained_model_path = get_model_path(pretrained_dataset, output_root=output_root)
 
     training_script(
         config_path=config_path,
@@ -165,14 +170,15 @@ def train_and_eval_script(
         sample_num=sample_num,
         max_epoch=max_epoch,
         max_iterations=max_iterations,
+        sub_output_dir=sub_output_dir,
         distributed=distributed,
         nnodes=nnodes,
         nproc_per_node=nproc_per_node,
         **method_config,
     )
 
-    model_path = get_model_path(training_dataset, epoch=eval_epoch)
-    eval_results_path = get_output_dataset_dir(training_dataset) / "eval_results.json"
+    model_path = get_model_path(training_dataset, output_root=output_root, epoch=eval_epoch)
+    eval_results_path = get_output_dataset_dir(training_dataset, output_root=output_root) / "eval_results.json"
 
     eval_on_multiple_datasets_script(
         datasets=eval_dataset_seq,
@@ -189,6 +195,7 @@ def training_script(
     sample_num=-1,
     max_epoch=10,
     max_iterations=1000,
+    sub_output_dir="default",
     distributed=False,
     nnodes=1,
     nproc_per_node=1,
@@ -211,6 +218,7 @@ def training_script(
         f"data.sample_num={sample_num}",
         f"task.max_epoch={max_epoch}",
         f"task.max_iterations={max_iterations}",
+        f"task.output_dir={DEFAULT_OUTPUT_ROOT}/{sub_output_dir}",
     ]
 
     if len(method_config) > 0:
