@@ -7,9 +7,9 @@ from src.utils import (
     get_config,
     get_job_id,
     init_distributed_mode,
+    is_main_process,
     setup_seeds,
     wandb_logger,
-    is_main_process,
 )
 
 

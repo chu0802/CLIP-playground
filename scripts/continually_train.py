@@ -1,8 +1,9 @@
 import argparse
-
-from scripts.utils import DEFAULT_DATASET_SEQ, ContinualTrainer
 from collections import deque
 from copy import deepcopy
+
+from scripts.utils import DEFAULT_DATASET_SEQ, ContinualTrainer
+
 
 def main(args):
     if args.dataset_seq is None:
@@ -25,7 +26,9 @@ def main(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--config_path", type=str, default="configs/split_teacher_config.yaml")
+    p.add_argument(
+        "--config_path", type=str, default="configs/split_teacher_config.yaml"
+    )
     p.add_argument(
         "--dataset_seq",
         type=str,

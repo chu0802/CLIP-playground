@@ -32,9 +32,7 @@ class ContinualTrainer:
         self.config_path = config_path
         self.training_dataset_seq = training_dataset_seq
         self.eval_dataset_seq = (
-            training_dataset_seq
-            if eval_dataset_seq is None
-            else eval_dataset_seq
+            training_dataset_seq if eval_dataset_seq is None else eval_dataset_seq
         )
         self.distributed_config = {
             "distributed": distributed,
@@ -43,14 +41,19 @@ class ContinualTrainer:
         }
         self.sub_output_dir = f"order_{order}"
 
-        self.output_dir = DEFAULT_OUTPUT_ROOT / self.sub_output_dir / Path(self.config_path).stem
+        self.output_dir = (
+            DEFAULT_OUTPUT_ROOT / self.sub_output_dir / Path(self.config_path).stem
+        )
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def aggregate_results(self, training_dataset_seq, ouptut_root):
         results_dict = dict()
         for dataset in training_dataset_seq:
-            eval_result_path = get_output_dataset_dir(dataset, output_root=ouptut_root) / "eval_results.json"
+            eval_result_path = (
+                get_output_dataset_dir(dataset, output_root=ouptut_root)
+                / "eval_results.json"
+            )
 
             with eval_result_path.open("r") as f:
                 results = json.load(f)
@@ -103,7 +106,10 @@ class ContinualTrainer:
             )
             pretrained_dataset = training_dataset
 
-        res = self.aggregate_results(training_dataset_seq=self.training_dataset_seq, ouptut_root=self.output_dir.parent)
+        res = self.aggregate_results(
+            training_dataset_seq=self.training_dataset_seq,
+            ouptut_root=self.output_dir.parent,
+        )
 
         with (self.output_dir / "final_results.json").open("w") as f:
             json.dump(res, f, indent=4)
@@ -177,8 +183,13 @@ def train_and_eval_script(
         **method_config,
     )
 
-    model_path = get_model_path(training_dataset, output_root=output_root, epoch=eval_epoch)
-    eval_results_path = get_output_dataset_dir(training_dataset, output_root=output_root) / "eval_results.json"
+    model_path = get_model_path(
+        training_dataset, output_root=output_root, epoch=eval_epoch
+    )
+    eval_results_path = (
+        get_output_dataset_dir(training_dataset, output_root=output_root)
+        / "eval_results.json"
+    )
 
     eval_on_multiple_datasets_script(
         datasets=eval_dataset_seq,

@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 import wandb
 from src.trainer.utils import CosineLRScheduler, get_optimizer
-from src.utils import AccuracyMeter, dump_config, main_process, is_main_process
+from src.utils import AccuracyMeter, dump_config, is_main_process, main_process
 
 
 class BaseTrainer:
@@ -22,13 +22,11 @@ class BaseTrainer:
 
         if self.training_mode and job_id:
             self.output_dir = (
-                Path(self.config.task.output_dir)
-                / self.config.data.name
-                / job_id
+                Path(self.config.task.output_dir) / self.config.data.name / job_id
             )
             self.output_dir.mkdir(parents=True, exist_ok=True)
             dump_config(self.config, self.output_dir / "config.json")
-            
+
             self.lastest_dir = self.output_dir.parent / "latest"
 
             if self.lastest_dir.exists():
@@ -46,7 +44,6 @@ class BaseTrainer:
             self.lr_scheduler = CosineLRScheduler(
                 self.optimizer, self.config.task, self.num_total_train_steps
             )
-            
 
     @main_process
     def save(self, epoch=None):
