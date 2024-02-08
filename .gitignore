@@ -5,7 +5,7 @@ prev_outputs
 .vscode
 wandb
 outputs
-script.sh
+*.sh
 *.pt
 
 # Byte-compiled / optimized / DLL files
