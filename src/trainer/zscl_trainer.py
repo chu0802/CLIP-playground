@@ -22,7 +22,7 @@ class ZSCLTrainer(BaseKDTrainer):
             self.epoch_counter += 1
             loader.init()
             ref_data = next(loader)
-            
+
             if self.distributed:
                 self.ref_loader.set_epoch(self.epoch_counter)
 

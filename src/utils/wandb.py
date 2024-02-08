@@ -1,14 +1,16 @@
 import shutil
 
 import wandb
-from src.utils.config import flatten_config
 from src.utils import is_main_process
+from src.utils.config import flatten_config
+
 
 def print_text_in_center_with_border(text, symbol="="):
     terminal_width, _ = shutil.get_terminal_size()
     padding = (terminal_width - len(text)) // 2
 
     print(symbol * padding + text + symbol * padding)
+
 
 def wandb_logger(func):
     def wrap(config):
