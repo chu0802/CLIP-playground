@@ -146,22 +146,34 @@ class PureClip(ModelBase):
 
         self.tokenizer = open_clip.get_tokenizer(model_name)
         self.template = SIMPLE_TEMPLATE_LIST[0]
-        self.class_tokens = self.tokenizer(
-            [self.template(t) for t in class_name_list]
-        ).to(device)
+        self.device = device
+        self.class_tokens = self.tokenize(class_name_list)
 
     @property
     def preprocess_config(self):
         return self.model.visual.preprocess_cfg
 
-    def forward(self, images, text=None, normalize=True):
-        image_embeddings = self.model.encode_image(images, normalize=normalize)
+    def tokenize(self, texts, device="cuda"):
+        return self.tokenizer([self.template(t) for t in texts]).to(device)
 
+    def encode(self, images=None, text=None, normalize=True):
+        if images is None:
+            return self.model.encode_text(text, normalize=normalize)
+        if text is None:
+            return self.model.encode_image(images, normalize=normalize)
+
+    # to fit the format of clip-classifier, we send a list of data to pure-clip if text is neeeded.
+    def forward(self, images, text=None, normalize=True, get_features=False):
         if text is None:
             text = self.class_tokens
-        text_embeddings = self.model.encode_text(text, normalize=normalize)
 
-        return image_embeddings, text_embeddings, self.model.logit_scale.exp()
+        image_embeddings = self.encode(images=images, normalize=normalize)
+        text_embeddings = self.encode(text=text, normalize=normalize)
+
+        if get_features:
+            return image_embeddings, text_embeddings, self.model.logit_scale.exp()
+
+        return self.model.logit_scale.exp() * image_embeddings @ text_embeddings.t()
 
     def get_params(self):
         exclude_param = "logit_scale"
@@ -203,6 +215,7 @@ def get_model(
 
     model_config = config.model
 
+    # first initialize a clip model pre-trained by openai
     if model_config.get("use_pure_clip", False):
         model = PureClip(model_config.vit_base, class_name_list, device=device)
     else:
@@ -215,8 +228,11 @@ def get_model(
             model_config.get("freeze_classification_head", False),
         )
 
+    # then load from a checkpoint if not pre-trained
     if not pretrained:
         model.load_state_dict(torch.load(model_config.pretrained)["model"])
+
+    model = model.to(device)
 
     if freeze:
         for _, v in model.named_parameters():
@@ -226,7 +242,7 @@ def get_model(
     if config.task.get("distributed", False) and not freeze:
         model = nn.parallel.DistributedDataParallel(model)
 
-    return model.to(device)
+    return model
 
 
 if __name__ == "__main__":

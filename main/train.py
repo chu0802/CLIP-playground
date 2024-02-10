@@ -30,6 +30,8 @@ def main(config):
     if config.method.name in ["previous_aware_zscl", "mix_teacher", "split_teacher"]:
         # to derive fine-tuned knowledge from teacher, we should not use pre-trained model as the teacher model.
         teachers["prev"] = get_model(config, device="cuda", freeze=True)
+    elif config.method.name in ["zscl"]:
+        teachers["l2"] = get_model(config, device="cuda", freeze=True)
 
     trainer = get_kd_trainer(model, dataloaders, config, teachers, job_id)
 

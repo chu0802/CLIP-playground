@@ -1,8 +1,7 @@
 model:
   vit_base: ViT-B-16
   pretrained: openai
-  use_pure_clip: False
-  freeze_classification_head: True
+  use_pure_clip: True
   wise:
     enable: False
     path: openai
@@ -11,8 +10,10 @@ model:
 method:
   name: zscl
   params:
-    ratio: 0.5
     label_smoothing: 0.2
+    l2_ratio: 1
+  ref_sentences_config:
+    size: 100
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train
@@ -55,3 +56,8 @@ task:
 
   output_dir: "outputs"
   log_interval: 10
+
+  world_size: 1
+  dist_url: "env://"
+  distributed: True
+  use_dist_eval_sampler: False

@@ -229,6 +229,7 @@ class BaseTrainer:
 class BaseKDTrainer(BaseTrainer):
     def __init__(self, model, dataloaders, config, teachers, job_id=None):
         super().__init__(model, dataloaders, config, job_id=job_id)
+        self.epoch_counter = 0
         self._teachers = teachers
         self.pretrained_teacher_model.eval()
         self.kl_criterion = nn.KLDivLoss()
@@ -237,14 +238,18 @@ class BaseKDTrainer(BaseTrainer):
     def pretrained_teacher_model(self):
         return self._teachers["pretrained"]
 
-    def _get_kd_loss(self, student_logits, teacher_logits, feature_criterion=None):
+    @property
+    def ref_loader(self):
+        return self.dataloaders["ref"]
+
+    def _get_kd_loss(self, student_logits, teacher_logits, feature_criterion=None, T=2):
         if feature_criterion:
             return feature_criterion(student_logits, teacher_logits)
 
-        soft_labels = nn.functional.softmax(teacher_logits, dim=-1)
-        soft_preds = nn.functional.log_softmax(student_logits, dim=-1)
-
-        return -(soft_labels * soft_preds).sum() / soft_preds.shape[0]
+        soft_labels = nn.functional.softmax(teacher_logits / T, dim=-1)
+        return nn.functional.cross_entropy(
+            student_logits / T, soft_labels, reduction="mean"
+        ) * (T**2)
 
     def get_kd_loss(
         self, ref_data, teacher_model=None, student_logits=None, feature_criterion=None
@@ -305,3 +310,24 @@ class BaseKDTrainer(BaseTrainer):
         return self.general_kd_loss(
             images, labels, mix_images, ratio, label_smoothing=label_smoothing
         )
+
+    def get_ref_data(self, loader, has_noise=False):
+        try:
+            ref_data = next(loader)
+        except StopIteration:
+            self.epoch_counter += 1
+            loader.init()
+            ref_data = next(loader)
+
+            if self.distributed:
+                self.ref_loader.set_epoch(self.epoch_counter)
+
+        data, index = ref_data[0], ref_data[-1]
+        if has_noise:
+            data += ref_data[1]
+
+        return data, index
+
+    def train(self, *args, **kwargs):
+        self.dataloaders["ref"].init()
+        super().train(*args, **kwargs)

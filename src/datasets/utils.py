@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 from torch.utils.data import DataLoader, DistributedSampler
 
 from src.datasets import DATASET_MAPPING
@@ -148,3 +150,18 @@ def load_class_name_list(config):
         data = json.load(f)
 
     return data["class_names"]
+
+
+def get_conceptual_captions(
+    config, filename="Validation_GCC-1.1.0-Validation.tsv", size=100
+):
+    path = Path(config.data.root) / "conceptual_captions" / filename
+
+    df = pd.read_csv(path, sep="\t")
+
+    rng = np.random.default_rng(config.task.seed)
+    random_index = rng.choice(
+        df.index, size=size if size else len(df.index), replace=False
+    )
+
+    return df.iloc[random_index, 0].tolist()

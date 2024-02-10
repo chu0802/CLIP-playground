@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 
+from src.trainer.base_trainer import BaseKDTrainer
 from src.trainer.utils import L2Loss
-from src.trainer.zscl_trainer import ZSCLTrainer
 
 
-class MixTeacherKDTrainer(ZSCLTrainer):
+class MixTeacherKDTrainer(BaseKDTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.prev_teacher_model.eval()

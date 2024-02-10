@@ -2,49 +2,76 @@ import numpy as np
 import torch
 
 from src.trainer.base_trainer import BaseKDTrainer
-from src.trainer.utils import L2Loss
 
 
 class ZSCLTrainer(BaseKDTrainer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.feature_criterion = L2Loss(reduce="mean")
-        self.epoch_counter = 0
+    @property
+    def l2_model(self):
+        return self._teachers["l2"]
 
     @property
-    def ref_loader(self):
-        return self.dataloaders["ref"]
+    def ref_sentences(self):
+        return self.dataloaders["ref_sentences"]
 
-    def get_ref_data(self, loader, has_noise=False):
-        try:
-            ref_data = next(loader)
-        except StopIteration:
-            self.epoch_counter += 1
-            loader.init()
-            ref_data = next(loader)
+    def l2_loss(self, model, model_ref):
+        loss = 0.0
+        for param_q, param_k in zip(model.parameters(), model_ref.parameters()):
+            loss += torch.nn.functional.mse_loss(
+                param_q, param_k.detach(), reduction="sum"
+            )
 
-            if self.distributed:
-                self.ref_loader.set_epoch(self.epoch_counter)
+        return loss
 
-        data, index = ref_data[0], ref_data[-1]
-        if has_noise:
-            data += ref_data[1]
-
-        return data, index
-
-    def zscl_loss(self, images, labels, ratio, label_smoothing=0.2, **_):
+    def zscl_loss(self, images, labels, label_smoothing=0.2, l2_ratio=1, **_):
         ref_images, _ = self.get_ref_data(self.ref_loader)
-        return self.general_kd_loss(
-            images,
-            labels,
-            ref_images,
-            ratio,
-            feature_criterion=self.feature_criterion,
-            label_smoothing=label_smoothing,
+
+        loss_dict = {}
+
+        base_loss = self.base_loss(images, labels, label_smoothing=label_smoothing)
+
+        (
+            teacher_ref_image_embedding,
+            teacher_ref_text_embedding,
+            logit_scale,
+        ) = self.pretrained_teacher_model(
+            ref_images, self.ref_sentences, get_features=True
         )
 
+        student_ref_image_embedding = self.train_model.module.encode(images=ref_images)
+
+        student_logits = (
+            logit_scale * student_ref_image_embedding @ teacher_ref_text_embedding.t()
+        )
+        teacher_logits = (
+            logit_scale * teacher_ref_image_embedding @ teacher_ref_text_embedding.t()
+        )
+
+        zscl_image_loss = self._get_kd_loss(student_logits, teacher_logits)
+
+        student_text_logits = student_logits.t()
+        teacher_text_logits = teacher_logits.t()
+
+        zscl_text_loss = self._get_kd_loss(student_text_logits, teacher_text_logits)
+
+        loss = base_loss + zscl_image_loss + zscl_text_loss
+        loss_dict = {
+            "base_loss": base_loss.item(),
+            "zscl_image_loss": zscl_image_loss.item(),
+            "zscl_text_loss": zscl_text_loss.item(),
+        }
+
+        if l2_ratio > 0:
+            l2_loss = self.l2_loss(self.train_model, self.l2_model)
+
+            loss += l2_ratio * l2_loss
+            loss_dict.update({"l2_loss": l2_loss.item()})
+
+        return loss, loss_dict
+
     def train(self, *args, **kwargs):
-        self.dataloaders["ref"].init()
+        self.dataloaders["ref_sentences"] = self.train_model.module.tokenize(
+            self.dataloaders["ref_sentences"]
+        )
         super().train(*args, **kwargs)
 
 

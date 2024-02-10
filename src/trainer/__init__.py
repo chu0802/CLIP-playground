@@ -1,5 +1,5 @@
 from src.datasets import DATASET_MAPPING
-from src.datasets.utils import get_dataloader, load_transform
+from src.datasets.utils import get_conceptual_captions, get_dataloader, load_transform
 
 from .base_trainer import BaseKDTrainer, BaseTrainer
 from .mix_teacher_trainer import MixTeacherKDTrainer, SplitTeacherKDTrainer
@@ -30,6 +30,11 @@ def get_kd_trainer(model, dataloaders, config, teacher_models, job_id=None):
             seed=config.task.seed,
             distributed=config.task.get("distributed", False),
             **dataloader_config,
+        )
+
+    if config.method.name == "zscl":
+        dataloaders["ref_sentences"] = get_conceptual_captions(
+            config, size=config.method.ref_sentences_config.size
         )
 
     if config.method.name == "previous_aware_zscl":
