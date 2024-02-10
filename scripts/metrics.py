@@ -43,7 +43,7 @@ def avg_final_performance(res_list):
     metric = 100 * pd.concat(
         [res.iloc[-1][DEFAULT_DATASET_SEQ] for res in res_list], axis=1
     ).mean(axis=1)
-    return metric.to_frame("avg. final performance").T.round(2)
+    return metric.to_frame("avg. final performance").T
 
 
 def parse_results(method_dir="split_teacher_config"):
@@ -61,17 +61,25 @@ def parse_results(method_dir="split_teacher_config"):
 def main(args):
     res_list = parse_results(method_dir=f"{args.method}_config")
 
-    forget = max_catastrophic_forgetting(res_list)
-    degradation = max_zero_shot_degradation(res_list)
-    avg = avg_final_performance(res_list)
+    if args.order == "overall":
+        forget = max_catastrophic_forgetting(res_list)
+        degradation = max_zero_shot_degradation(res_list)
+        avg = avg_final_performance(res_list)
 
-    print(pd.concat([forget, degradation, avg], axis=0))
-    # print(forgetting)
+        print(pd.concat([forget, degradation, avg], axis=0).round(2))
+    else:
+        print((100 * res_list[int(args.order)]).round(2))
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--method", default="split_teacher")
+    p.add_argument(
+        "--order",
+        type=str,
+        default="overall",
+        choices=[str(i) for i in range(8)] + ["overall"],
+    )
     args = p.parse_args()
 
     main(args)
