@@ -182,7 +182,7 @@ class PureClip(ModelBase):
 def build_classification_head(model_config, class_name_list, template_list):
     # We must send clip base model to cuda in this step since we are inferencing the outputs of the class names.
     # However, the built classification head in this step haven't been sent to cuda yet.
-    clip_base = ClipBase(model_config.vit_base, model_config.pretrained).to("cuda")
+    clip_base = ClipBase(model_config.vit_base).to("cuda")
     tokenizer = open_clip.get_tokenizer(model_config.vit_base)
     class_template = ClassTemplate(clip_base.model, tokenizer, template_list, "cuda")
     classification_head = ClassificationHead.initialize(class_name_list, class_template)
@@ -234,10 +234,10 @@ if __name__ == "__main__":
 
     from src.datasets.core_dataset import Flowers102
 
-    config = OmegaConf.load("config.yaml")
+    config = OmegaConf.load("configs/split_teacher_config.yaml")
     dataset = Flowers102(root=config.data.root, mode="val")
 
-    model = get_model(config, device="cuda")
+    model = get_model(config, pretrained=True, freeze=True, device="cuda")
 
     a = torch.rand(16, 3, 224, 224).cuda()
     print(model(a))
