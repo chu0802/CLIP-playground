@@ -6,7 +6,7 @@ from torchvision.utils import save_image
 from tqdm import tqdm
 
 import wandb
-from analysis.utils import TEST_CONFIG, load_model_from_pretrained
+from analysis.utils import TEST_CONFIG, get_model
 from src.datasets.base import ImageListDataset
 from src.datasets.transform import load_transform
 from src.datasets.utils import build_iter_dataloader
@@ -111,10 +111,8 @@ class PGDAttacker:
 
 
 def main(config):
-    fine_model = load_model_from_pretrained(config, device="cuda", freeze=True)
-    pretrained_model = load_model_from_pretrained(
-        config, device="cuda", freeze=True, pretrained=True
-    )
+    fine_model = get_model(config, device="cuda", freeze=True)
+    pretrained_model = get_model(config, device="cuda", freeze=True, pretrained=True)
 
     train_trans, eval_trans = load_transform()
 

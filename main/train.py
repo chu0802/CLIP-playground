@@ -1,7 +1,7 @@
 from copy import deepcopy
 
 from src.datasets.utils import get_dataloaders_from_config
-from src.models.clip import load_model_from_pretrained
+from src.models.clip import get_model
 from src.trainer import get_kd_trainer
 from src.utils import (
     get_config,
@@ -18,20 +18,18 @@ def main(config):
     job_id = get_job_id() if is_main_process() else None
     setup_seeds(config.task.seed)
 
-    model = load_model_from_pretrained(config, device="cuda", freeze=False)
+    model = get_model(config, device="cuda", freeze=False)
 
     dataloaders = get_dataloaders_from_config(config)
 
     teachers = dict()
-    teachers["pretrained"] = load_model_from_pretrained(
-        deepcopy(config), device="cuda", freeze=True, pretrained=True
+    teachers["pretrained"] = get_model(
+        config, device="cuda", freeze=True, pretrained=True
     )
 
     if config.method.name in ["previous_aware_zscl", "mix_teacher", "split_teacher"]:
         # to derive fine-tuned knowledge from teacher, we should not use pre-trained model as the teacher model.
-        teachers["prev"] = load_model_from_pretrained(
-            deepcopy(config), device="cuda", freeze=True
-        )
+        teachers["prev"] = get_model(config, device="cuda", freeze=True)
 
     trainer = get_kd_trainer(model, dataloaders, config, teachers, job_id)
 

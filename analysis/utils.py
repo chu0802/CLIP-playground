@@ -18,21 +18,6 @@ TEST_CONFIG = OmegaConf.create(
 )
 
 
-def load_model_from_pretrained(config, device="cuda", freeze=True, pretrained=False):
-    if pretrained:
-        config.model.pretrained = "openai"
-
-    model = get_model(config, device=device)
-
-    if freeze:
-        for param in model.parameters():
-            param.requires_grad = False
-
-        model.eval()
-
-    return model
-
-
 def prepare_dataloader(
     dataset, batch_size=32, shuffle=True, drop_last=False, mode="train"
 ):
