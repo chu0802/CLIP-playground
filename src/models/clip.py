@@ -132,7 +132,16 @@ class PureClip(nn.Module):
         return self.model.logit_scale.exp() * image_embeddings @ text_embeddings.T
 
     def get_params(self):
-        return [{"params": [p for p in self.model.parameters() if p.requires_grad]}]
+        exclude_param = "logit_scale"
+        return [
+            {
+                "params": [
+                    p
+                    for k, p in self.model.named_parameters()
+                    if p.requires_grad and exclude_param not in k
+                ]
+            }
+        ]
 
 
 def get_model(config, device="cuda", template_list=SIMPLE_TEMPLATE_LIST):
