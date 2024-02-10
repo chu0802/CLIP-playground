@@ -51,9 +51,9 @@ class BaseTrainer:
 
         unwrapped_eval_model = self.unwrapped_model(self.eval_model)
 
-        visual_state_dict = unwrapped_eval_model.clip_base.model.state_dict()
+        state_dict = unwrapped_eval_model.get_state_dict()
 
-        save_obj = {"model": visual_state_dict}
+        save_obj = {"model": state_dict}
 
         if not epoch:
             epoch = "latest"

@@ -8,12 +8,12 @@ from torchvision.datasets import ImageFolder
 from tqdm import tqdm
 
 import wandb
-from analysis.utils import TEST_CONFIG, load_model_from_pretrained, prepare_dataloader
+from analysis.utils import TEST_CONFIG, get_model, prepare_dataloader
 from src.datasets import DATASET_MAPPING
 from src.datasets.base import NoisyImageListDataset
 from src.datasets.transform import RAW_TRANSFORM, load_transform
 from src.datasets.utils import build_iter_dataloader, get_dataloader
-from src.trainer.scheduler import CosineLRScheduler
+from src.trainer.utils import CosineLRScheduler
 from src.utils import inference_feature_distance, setup_seeds, wandb_logger
 
 DATA_ROOT = "/mnt/data/classification"
@@ -76,10 +76,8 @@ def main(config, seed=1102):
     #     device="cuda",
     # )
 
-    finetuned_model = load_model_from_pretrained(config, device="cuda", freeze=True)
-    pretrained_model = load_model_from_pretrained(
-        config, device="cuda", freeze=True, pretrained=True
-    )
+    finetuned_model = get_model(config, device="cuda", freeze=True)
+    pretrained_model = get_model(config, device="cuda", freeze=True, pretrained=True)
 
     imagenet_data_distance, indices = inference_feature_distance(
         pretrained_model, finetuned_model, dataloader

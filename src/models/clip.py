@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from copy import deepcopy
 
 import open_clip
@@ -8,6 +9,23 @@ from tqdm import tqdm
 
 from src.datasets.utils import load_class_name_list
 from src.template import SIMPLE_TEMPLATE_LIST, ClassTemplate
+
+
+class ModelBase(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def forward(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_params(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_state_dict(self):
+        raise NotImplementedError
 
 
 class VisualClipBase(nn.Module):
@@ -25,11 +43,11 @@ class VisualClipBase(nn.Module):
 
 
 class ClipBase(nn.Module):
-    def __init__(self, model_name="ViT-B-16", pretrained="openai"):
+    def __init__(self, model_name="ViT-B-16"):
         super().__init__()
         self.model = open_clip.create_model_from_pretrained(
             model_name,
-            pretrained=pretrained,
+            pretrained="openai",
             return_transform=False,
         )
 
@@ -61,7 +79,7 @@ class ClassificationHead(nn.Linear):
         return cls(classifier_weights.detach().cpu())
 
 
-class ClipClassifier(nn.Module):
+class ClipClassifier(ModelBase):
     def __init__(
         self, clip_base, classification_head, freeze_classification_head=False
     ):
@@ -104,79 +122,101 @@ class ClipClassifier(nn.Module):
             {"params": classification_head_params},
         ]
 
+    def get_state_dict(self):
+        if self.freeze_classification_head:
+            return self.clip_base.model.state_dict()
+        return self.state_dict()
+
+    def load_state_dict(self, state_dict):
+        if self.freeze_classification_head:
+            self.clip_base.model.load_state_dict(state_dict)
+        else:
+            super().load_state_dict(state_dict)
+
 
 # In PureClip model, the text-encoder is involved in the training progress.
-class PureClip(nn.Module):
-    def __init__(self, model_config, class_name_list):
+class PureClip(ModelBase):
+    def __init__(self, model_name, class_name_list, device="cuda"):
         super().__init__()
         self.model = open_clip.create_model_from_pretrained(
-            model_config.vit_base,
-            pretrained=model_config.pretrained,
+            model_name,
+            pretrained="openai",
             return_transform=False,
         )
 
-        self.tokenizer = open_clip.get_tokenizer(model_config.vit_base)
+        self.tokenizer = open_clip.get_tokenizer(model_name)
         self.template = SIMPLE_TEMPLATE_LIST[0]
         self.class_tokens = self.tokenizer(
             [self.template(t) for t in class_name_list]
-        ).cuda()
+        ).to(device)
 
     @property
     def preprocess_config(self):
         return self.model.visual.preprocess_cfg
 
-    def forward(self, images, normalize=True):
+    def forward(self, images, text=None, normalize=True):
         image_embeddings = self.model.encode_image(images, normalize=normalize)
-        text_embeddings = self.model.encode_text(self.class_tokens, normalize=normalize)
 
-        return self.model.logit_scale.exp() * image_embeddings @ text_embeddings.T
+        if text is None:
+            text = self.class_tokens
+        text_embeddings = self.model.encode_text(text, normalize=normalize)
+
+        return image_embeddings, text_embeddings, self.model.logit_scale.exp()
 
     def get_params(self):
-        return [{"params": [p for p in self.model.parameters() if p.requires_grad]}]
+        exclude_param = "logit_scale"
+        return [
+            {
+                "params": [
+                    p
+                    for k, p in self.model.named_parameters()
+                    if p.requires_grad and exclude_param not in k
+                ]
+            }
+        ]
+
+    def get_state_dict(self):
+        return self.model.state_dict()
 
 
-def get_model(config, device="cuda", template_list=SIMPLE_TEMPLATE_LIST):
+def build_classification_head(model_config, class_name_list, template_list):
+    # We must send clip base model to cuda in this step since we are inferencing the outputs of the class names.
+    # However, the built classification head in this step haven't been sent to cuda yet.
+    clip_base = ClipBase(model_config.vit_base, model_config.pretrained).to("cuda")
+    tokenizer = open_clip.get_tokenizer(model_config.vit_base)
+    class_template = ClassTemplate(clip_base.model, tokenizer, template_list, "cuda")
+    classification_head = ClassificationHead.initialize(class_name_list, class_template)
+
+    del clip_base
+
+    return classification_head
+
+
+def get_model(
+    config,
+    pretrained=True,
+    freeze=False,
+    template_list=SIMPLE_TEMPLATE_LIST,
+    device="cuda",
+):
     class_name_list = load_class_name_list(config)
 
     model_config = config.model
 
     if model_config.get("use_pure_clip", False):
-        return PureClip(model_config, class_name_list).to(device)
-
-    model_name, pretrained = model_config.vit_base, model_config.pretrained
-
-    # produce classification head
-    if (model_name, pretrained) in open_clip.list_pretrained():
-        clip_base = ClipBase(model_config.vit_base, model_config.pretrained).to(device)
+        model = PureClip(model_config.vit_base, class_name_list, device=device)
     else:
-        # TODO: check if freeze classification head
-        clip_base = ClipBase(model_name)
-        state_dict = torch.load(pretrained)["model"]
-        clip_base.model.visual.load_state_dict(state_dict)
-        clip_base.to(device)
+        classification_head = build_classification_head(
+            model_config, class_name_list, template_list
+        )
+        model = ClipClassifier(
+            VisualClipBase(ClipBase(model_config.vit_base).model.visual),
+            classification_head,
+            model_config.get("freeze_classification_head", False),
+        )
 
-    tokenizer = open_clip.get_tokenizer(model_name)
-
-    class_template = ClassTemplate(clip_base.model, tokenizer, template_list, device)
-
-    classification_head = ClassificationHead.initialize(class_name_list, class_template)
-
-    visual_clip_base = VisualClipBase(deepcopy(clip_base.model.visual))
-
-    del clip_base
-
-    return ClipClassifier(
-        visual_clip_base,
-        classification_head,
-        model_config.get("freeze_classification_head", False),
-    ).to(device)
-
-
-def load_model_from_pretrained(config, device="cuda", freeze=False, pretrained=False):
-    if pretrained:
-        config.model.pretrained = "openai"
-
-    model = get_model(config, device=device)
+    if not pretrained:
+        model.load_state_dict(torch.load(model_config.pretrained)["model"])
 
     if freeze:
         for _, v in model.named_parameters():
@@ -186,7 +226,7 @@ def load_model_from_pretrained(config, device="cuda", freeze=False, pretrained=F
     if config.task.get("distributed", False) and not freeze:
         model = nn.parallel.DistributedDataParallel(model)
 
-    return model
+    return model.to(device)
 
 
 if __name__ == "__main__":
