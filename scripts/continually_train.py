@@ -5,17 +5,24 @@ from copy import deepcopy
 from scripts.utils import DEFAULT_DATASET_SEQ, ContinualTrainer
 
 
-def main(args):
+def parse_dataset_seq(args):
     if args.dataset_seq is None:
-        args.dataset_seq = deque(deepcopy(DEFAULT_DATASET_SEQ))
-        args.dataset_seq.rotate(args.order)
+        dataset_seq = deque(deepcopy(DEFAULT_DATASET_SEQ))
+        dataset_seq.rotate(args.order)
+        sub_output_dir = f"order_{args.order}"
     else:
-        args.dataset_seq = args.dataset_seq.split(",")
+        dataset_seq = args.dataset_seq.split(",")
+        sub_output_dir = args.sub_output_dir
+    return dataset_seq, sub_output_dir
+
+
+def main(args):
+    dataset_seq, sub_output_dir = parse_dataset_seq(args)
 
     continual_trainer = ContinualTrainer(
         config_path=args.config_path,
-        training_dataset_seq=args.dataset_seq,
-        order=args.order,
+        training_dataset_seq=dataset_seq,
+        sub_output_dir=sub_output_dir,
         distributed=args.distributed,
         nnodes=args.nnodes,
         nproc_per_node=args.nproc_per_node,
@@ -40,6 +47,7 @@ if __name__ == "__main__":
     p.add_argument("--nnodes", type=int, default=1)
     p.add_argument("--nproc_per_node", type=int, default=1)
     p.add_argument("--order", type=int, default=0)
+    p.add_argument("--sub_output_dir", type=str, default="default")
     args = p.parse_args()
 
     main(args)

@@ -10,6 +10,7 @@ def main(args):
         pretrained_dataset=args.pretrained_dataset,
         max_epoch=args.train_epoch,
         max_iterations=args.max_iterations,
+        sub_output_dir=args.sub_output_dir,
         eval_epoch=args.eval_epoch,
         distributed=args.distributed,
         nnodes=args.nnodes,
@@ -24,6 +25,7 @@ if __name__ == "__main__":
     )
     p.add_argument("--pretrained_dataset", type=str, default=None)
     p.add_argument("--dataset", type=str, default="fgvc-aircraft")
+    p.add_argument("--sub_output_dir", type=str, default="default")
     p.add_argument("--train_epoch", type=int, default=10)
     p.add_argument("--max_iterations", type=int, default=1000)
     p.add_argument(

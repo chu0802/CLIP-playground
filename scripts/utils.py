@@ -24,7 +24,7 @@ class ContinualTrainer:
         config_path: str = "configs/mix_teacher_config.yaml",
         training_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
         eval_dataset_seq: List[str] = None,
-        order: int = 0,
+        sub_output_dir: str = "default",
         distributed: bool = False,
         nnodes: int = 1,
         nproc_per_node: int = 1,
@@ -39,7 +39,7 @@ class ContinualTrainer:
             "nnodes": nnodes,
             "nproc_per_node": nproc_per_node,
         }
-        self.sub_output_dir = f"order_{order}"
+        self.sub_output_dir = sub_output_dir
 
         self.output_dir = (
             DEFAULT_OUTPUT_ROOT / self.sub_output_dir / Path(self.config_path).stem
