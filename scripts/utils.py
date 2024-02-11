@@ -166,22 +166,22 @@ def train_and_eval_script(
     **method_config,
 ):
     output_root = DEFAULT_OUTPUT_ROOT / sub_output_dir
-    pretrained_model_path = get_model_path(pretrained_dataset, output_root=output_root)
+    # pretrained_model_path = get_model_path(pretrained_dataset, output_root=output_root)
 
-    training_script(
-        config_path=config_path,
-        training_module=training_module,
-        dataset=training_dataset,
-        pretrained_model_path=pretrained_model_path,
-        sample_num=sample_num,
-        max_epoch=max_epoch,
-        max_iterations=max_iterations,
-        sub_output_dir=sub_output_dir,
-        distributed=distributed,
-        nnodes=nnodes,
-        nproc_per_node=nproc_per_node,
-        **method_config,
-    )
+    # training_script(
+    #     config_path=config_path,
+    #     training_module=training_module,
+    #     dataset=training_dataset,
+    #     pretrained_model_path=pretrained_model_path,
+    #     sample_num=sample_num,
+    #     max_epoch=max_epoch,
+    #     max_iterations=max_iterations,
+    #     sub_output_dir=sub_output_dir,
+    #     distributed=distributed,
+    #     nnodes=nnodes,
+    #     nproc_per_node=nproc_per_node,
+    #     **method_config,
+    # )
 
     model_path = get_model_path(
         training_dataset, output_root=output_root, epoch=eval_epoch

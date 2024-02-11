@@ -18,7 +18,7 @@ def main(config):
     job_id = get_job_id() if is_main_process() else None
     setup_seeds(config.task.seed)
 
-    model = get_model(config, device="cuda", freeze=False)
+    model = get_model(config, device="cuda", freeze=False, pretrained=False)
 
     dataloaders = get_dataloaders_from_config(config)
 
@@ -29,9 +29,11 @@ def main(config):
 
     if config.method.name in ["previous_aware_zscl", "mix_teacher", "split_teacher"]:
         # to derive fine-tuned knowledge from teacher, we should not use pre-trained model as the teacher model.
-        teachers["prev"] = get_model(config, device="cuda", freeze=True)
+        teachers["prev"] = get_model(
+            config, device="cuda", freeze=True, pretrained=False
+        )
     elif config.method.name in ["zscl"]:
-        teachers["l2"] = get_model(config, device="cuda", freeze=True)
+        teachers["l2"] = get_model(config, device="cuda", freeze=True, pretrained=False)
 
     trainer = get_kd_trainer(model, dataloaders, config, teachers, job_id)
 

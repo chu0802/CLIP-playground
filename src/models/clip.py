@@ -206,7 +206,7 @@ def build_classification_head(model_config, class_name_list, template_list):
 
 def get_model(
     config,
-    pretrained=True,
+    pretrained=False,
     freeze=False,
     template_list=SIMPLE_TEMPLATE_LIST,
     device="cuda",
@@ -229,7 +229,7 @@ def get_model(
         )
 
     # then load from a checkpoint if not pre-trained
-    if not pretrained:
+    if model_config.pretrained != "openai" and not pretrained:
         model.load_state_dict(torch.load(model_config.pretrained)["model"])
 
     model = model.to(device)

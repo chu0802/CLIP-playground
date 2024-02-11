@@ -7,7 +7,7 @@ from src.utils import get_config, setup_seeds
 def main(config):
     setup_seeds(config.task.seed)
 
-    model = get_model(config, device="cuda", freeze=True)
+    model = get_model(config, device="cuda", freeze=True, pretrained=False)
 
     dataloaders = get_dataloaders_from_config(config)
 
