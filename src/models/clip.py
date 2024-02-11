@@ -190,6 +190,9 @@ class PureClip(ModelBase):
     def get_state_dict(self):
         return self.model.state_dict()
 
+    def load_state_dict(self, state_dict):
+        self.model.load_state_dict(state_dict)
+
 
 def build_classification_head(model_config, class_name_list, template_list):
     # We must send clip base model to cuda in this step since we are inferencing the outputs of the class names.
