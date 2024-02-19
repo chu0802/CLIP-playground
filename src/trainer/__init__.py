@@ -2,7 +2,11 @@ from src.datasets import DATASET_MAPPING
 from src.datasets.utils import get_conceptual_captions, get_dataloader, load_transform
 
 from .base_trainer import BaseKDTrainer, BaseTrainer
-from .mix_teacher_trainer import MixTeacherKDTrainer, SplitTeacherKDTrainer
+from .mix_teacher_trainer import (
+    MixTeacherKDTrainer,
+    SplitTeacherKDTrainer,
+    SplitTeacherPureClipKDTrainer,
+)
 from .we_trainer import get_weight_ensemble_trainer_class
 from .zscl_trainer import PreviousAwareZSCLTrainer, ZSCLTrainer
 
@@ -11,6 +15,7 @@ TRAINER_MAPPING = {
     "previous_aware_zscl": PreviousAwareZSCLTrainer,
     "mix_teacher": MixTeacherKDTrainer,
     "split_teacher": SplitTeacherKDTrainer,
+    "split_teacher_pure_clip": SplitTeacherPureClipKDTrainer,
 }
 
 
