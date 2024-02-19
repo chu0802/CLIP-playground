@@ -29,13 +29,14 @@ class ZSCLTrainer(BaseKDTrainer):
 
         base_loss = self.base_loss(images, labels, label_smoothing=label_smoothing)
 
-        (
-            teacher_ref_image_embedding,
-            teacher_ref_text_embedding,
-            logit_scale,
-        ) = self.pretrained_teacher_model(
-            ref_images, self.ref_sentences, get_features=True
-        )
+        with torch.no_grad():
+            (
+                teacher_ref_image_embedding,
+                teacher_ref_text_embedding,
+                logit_scale,
+            ) = self.pretrained_teacher_model(
+                ref_images, self.ref_sentences, get_features=True
+            )
 
         student_ref_image_embedding = self.train_model.module.encode(images=ref_images)
 
