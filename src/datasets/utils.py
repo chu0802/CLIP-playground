@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -139,17 +140,25 @@ def get_dataloaders_from_config(config, device="cuda"):
     return dataloaders
 
 
-def load_class_name_list(config):
-    dataset_class = DATASET_MAPPING[config.data.name]
+def load_single_class_name_list(dataset_name: str, data_root: str):
+    dataset_class = DATASET_MAPPING[dataset_name]
     name, annotation_filename = (
         dataset_class.dataset_name,
         dataset_class.annotation_filename,
     )
 
-    with (Path(config.data.root) / name / annotation_filename).open("r") as f:
+    with (Path(data_root) / name / annotation_filename).open("r") as f:
         data = json.load(f)
 
     return data["class_names"]
+
+
+def load_class_name_list(config):
+    dataset_list = config.data.get("inference_dataset_list", [config.data.name])
+    class_name_list = []
+    for dataset_name in dataset_list:
+        class_name_list += load_single_class_name_list(dataset_name, config.data.root)
+    return class_name_list
 
 
 def get_conceptual_captions(
