@@ -103,6 +103,7 @@ def get_dataloader(
     device="cuda",
     seed=1102,
     distributed=False,
+    label_shift=0,
     **dataloader_config,
 ):
     dataset_class = DATASET_MAPPING[dataset_name]
@@ -113,6 +114,7 @@ def get_dataloader(
         transform=transform,
         sample_num=sample_num,
         seed=seed,
+        label_shift=label_shift,
     )
 
     distributed = distributed and mode == "train"
@@ -121,11 +123,13 @@ def get_dataloader(
     )
 
 
-def get_dataloaders_from_config(config, device="cuda"):
+def get_dataloaders_from_config(config, num_classes_accumulation_dict, device="cuda"):
     dataloaders = {}
     train_transform, eval_transform = load_transform()
 
     for dataloader_type, dataloader_config in config.data.split.items():
+        label_shift = num_classes_accumulation_dict[config.data.name]
+
         dataloaders[dataloader_type] = get_dataloader(
             dataset_name=config.data.name,
             root=config.data.root,
@@ -134,6 +138,7 @@ def get_dataloaders_from_config(config, device="cuda"):
             sample_num=config.data.get("sample_num", -1),
             device=device,
             distributed=config.task.get("distributed", False),
+            label_shift=label_shift,
             **dataloader_config,
         )
 
@@ -156,9 +161,14 @@ def load_single_class_name_list(dataset_name: str, data_root: str):
 def load_class_name_list(config):
     dataset_list = config.data.get("inference_dataset_list", [config.data.name])
     class_name_list = []
+    num_classes_accumulation = []
     for dataset_name in dataset_list:
-        class_name_list += load_single_class_name_list(dataset_name, config.data.root)
-    return class_name_list
+        class_names = load_single_class_name_list(dataset_name, config.data.root)
+        class_name_list += class_names
+        num_classes_accumulation.append(len(class_names))
+    num_classes_accumulation = [0] + np.cumsum(num_classes_accumulation).tolist()[:-1]
+
+    return class_name_list, dict(zip(dataset_list, num_classes_accumulation))
 
 
 def get_conceptual_captions(

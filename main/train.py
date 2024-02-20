@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from src.datasets.utils import get_dataloaders_from_config
+from src.datasets.utils import get_dataloaders_from_config, load_class_name_list
 from src.models.clip import get_model
 from src.trainer import get_kd_trainer
 from src.utils import (
@@ -18,13 +18,17 @@ def main(config):
     job_id = get_job_id() if is_main_process() else None
     setup_seeds(config.task.seed)
 
-    model = get_model(config, device="cuda", freeze=False, pretrained=False)
+    class_name_list, num_classes_accumulation_dict = load_class_name_list(config)
 
-    dataloaders = get_dataloaders_from_config(config)
+    model = get_model(
+        config, class_name_list, device="cuda", freeze=False, pretrained=False
+    )
+
+    dataloaders = get_dataloaders_from_config(config, num_classes_accumulation_dict)
 
     teachers = dict()
     teachers["pretrained"] = get_model(
-        config, device="cuda", freeze=True, pretrained=True
+        config, class_name_list, device="cuda", freeze=True, pretrained=True
     )
 
     if config.method.name in [
@@ -35,11 +39,11 @@ def main(config):
     ]:
         # to derive fine-tuned knowledge from teacher, we should not use pre-trained model as the teacher model.
         teachers["prev"] = get_model(
-            config, device="cuda", freeze=True, pretrained=False
+            config, class_name_list, device="cuda", freeze=True, pretrained=False
         )
     elif config.method.name in ["zscl"]:
         teachers["l2"] = get_model(
-            config, device="cuda", freeze=False, pretrained=False
+            config, class_name_list, device="cuda", freeze=False, pretrained=False
         )
 
     trainer = get_kd_trainer(model, dataloaders, config, teachers, job_id)

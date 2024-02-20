@@ -209,12 +209,12 @@ def build_classification_head(model_config, class_name_list, template_list):
 
 def get_model(
     config,
+    class_name_list,
     pretrained=False,
     freeze=False,
     template_list=SIMPLE_TEMPLATE_LIST,
     device="cuda",
 ):
-    class_name_list = load_class_name_list(config)
 
     model_config = config.model
 

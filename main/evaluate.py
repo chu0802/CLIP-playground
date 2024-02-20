@@ -1,4 +1,4 @@
-from src.datasets.utils import get_dataloaders_from_config
+from src.datasets.utils import get_dataloaders_from_config, load_class_name_list
 from src.models.clip import get_model
 from src.trainer import BaseTrainer as Trainer
 from src.utils import get_config, setup_seeds
@@ -7,9 +7,13 @@ from src.utils import get_config, setup_seeds
 def main(config):
     setup_seeds(config.task.seed)
 
-    model = get_model(config, device="cuda", freeze=True, pretrained=False)
+    class_name_list, num_classes_accumulation_dict = load_class_name_list(config)
 
-    dataloaders = get_dataloaders_from_config(config)
+    model = get_model(
+        config, class_name_list, device="cuda", freeze=True, pretrained=False
+    )
+
+    dataloaders = get_dataloaders_from_config(config, num_classes_accumulation_dict)
 
     trainer = Trainer(model, dataloaders, config)
 

@@ -17,12 +17,21 @@ def pil_loader(path: str):
 
 
 class BaseClassificationDataset(Dataset):
-    def __init__(self, root, mode="train", transform=None, sample_num=-1, seed=1102):
+    def __init__(
+        self,
+        root,
+        mode="train",
+        transform=None,
+        sample_num=-1,
+        seed=1102,
+        label_shift=0,
+    ):
         self.root = Path(root) / self.dataset_name
         self.mode = mode
         self._data_list, self._class_name_list = self.make_dataset()
         self.transform = transform
         self.rng = np.random.default_rng(seed)
+        self.label_shift = label_shift
 
         if sample_num != -1:
             sample_idx = self.rng.choice(
@@ -81,7 +90,7 @@ class BaseClassificationDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, label, index
+        return image, label + self.label_shift, index
 
 
 class ImageListDataset(BaseClassificationDataset):
