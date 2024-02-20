@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from src.datasets.utils import load_class_name_list
+from src.models.utils import disabled_train
 from src.template import SIMPLE_TEMPLATE_LIST, ClassTemplate
 
 
@@ -136,7 +137,13 @@ class ClipClassifier(ModelBase):
 
 # In PureClip model, the text-encoder is involved in the training progress.
 class PureClip(ModelBase):
-    def __init__(self, model_name, class_name_list, device="cuda"):
+    def __init__(
+        self,
+        model_name,
+        class_name_list,
+        freeze_classification_head=False,
+        device="cuda",
+    ):
         super().__init__()
         self.model = open_clip.create_model_from_pretrained(
             model_name,
@@ -148,6 +155,13 @@ class PureClip(ModelBase):
         self.template = SIMPLE_TEMPLATE_LIST[0]
         self.device = device
         self.class_tokens = self.tokenize(class_name_list)
+        self.freeze_classification_head = freeze_classification_head
+
+        if self.freeze_classification_head:
+            for p in self.model.transformer.parameters():
+                p.requires_grad = False
+            self.model.transformer.eval()
+            self.model.transformer.train = disabled_train
 
     @property
     def preprocess_config(self):
@@ -220,7 +234,14 @@ def get_model(
 
     # first initialize a clip model pre-trained by openai
     if model_config.get("use_pure_clip", False):
-        model = PureClip(model_config.vit_base, class_name_list, device=device)
+        model = PureClip(
+            model_config.vit_base,
+            class_name_list,
+            freeze_classification_head=model_config.get(
+                "freeze_classification_head", False
+            ),
+            device=device,
+        )
     else:
         classification_head = build_classification_head(
             model_config, class_name_list, template_list
