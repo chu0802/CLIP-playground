@@ -168,7 +168,7 @@ class SplitTeacherPureClipKDTrainer(MixTeacherKDTrainer):
             (
                 pretrained_teacher_ref_image_embedding,
                 _,
-                logit_scale,
+                _,
             ) = self.pretrained_teacher_model(ref_images, get_features=True)
 
             (

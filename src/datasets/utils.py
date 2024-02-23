@@ -125,7 +125,7 @@ def get_dataloader(
 
 def get_dataloaders_from_config(config, num_classes_accumulation_dict, device="cuda"):
     dataloaders = {}
-    train_transform, eval_transform = load_transform()
+    train_transform, eval_transform = load_transform(config)
 
     for dataloader_type, dataloader_config in config.data.split.items():
         label_shift = num_classes_accumulation_dict[config.data.name]

@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 
+import clip.clip as clip
 from src.datasets.utils import load_class_name_list
 from src.models.utils import disabled_train
 from src.template import SIMPLE_TEMPLATE_LIST, ClassTemplate
@@ -136,12 +137,14 @@ class ClipClassifier(ModelBase):
 
 
 # In PureClip model, the text-encoder is involved in the training progress.
+# FIXME: Directly remove logit scale before loading previous model might result in an error.
 class PureClip(ModelBase):
     def __init__(
         self,
         model_name,
         class_name_list,
         freeze_classification_head=False,
+        remove_logit_scale=False,
         device="cuda",
     ):
         super().__init__()
@@ -149,19 +152,28 @@ class PureClip(ModelBase):
             model_name,
             pretrained="openai",
             return_transform=False,
-        )
+        ).to(device)
+
+        # self.model, _, _ = clip.load("ViT-B/16", jit=False)
 
         self.tokenizer = open_clip.get_tokenizer(model_name)
         self.template = SIMPLE_TEMPLATE_LIST[0]
         self.device = device
         self.class_tokens = self.tokenize(class_name_list)
+
         self.freeze_classification_head = freeze_classification_head
+        self.remove_logit_scale = remove_logit_scale
 
         if self.freeze_classification_head:
-            for p in self.model.transformer.parameters():
-                p.requires_grad = False
+
+            for name, p in self.model.named_parameters():
+                if "visual" not in name:
+                    p.requires_grad = False
             self.model.transformer.eval()
             self.model.transformer.train = disabled_train
+
+        if self.remove_logit_scale:
+            del self.model.logit_scale
 
     @property
     def preprocess_config(self):
@@ -170,11 +182,19 @@ class PureClip(ModelBase):
     def tokenize(self, texts, device="cuda"):
         return self.tokenizer([self.template(t) for t in texts]).to(device)
 
+    @torch.no_grad()
+    def get_class_embedding(self, class_name_list, device="cuda"):
+        tokens = self.tokenizer([self.template(t) for t in class_name_list]).to(device)
+        text_embedding = self.model.encode_text(tokens)
+        return F.normalize(text_embedding)
+
     def encode(self, images=None, text=None, normalize=True):
         if images is None:
-            return self.model.encode_text(text, normalize=normalize)
+            text_embeddings = self.model.encode_text(text)
+            return F.normalize(text_embeddings) if normalize else text_embeddings
         if text is None:
-            return self.model.encode_image(images, normalize=normalize)
+            image_embeddings = self.model.encode_image(images)
+            return F.normalize(image_embeddings) if normalize else image_embeddings
 
     # to fit the format of clip-classifier, we send a list of data to pure-clip if text is neeeded.
     def forward(self, images, text=None, normalize=True, get_features=False):
@@ -187,7 +207,12 @@ class PureClip(ModelBase):
         if get_features:
             return image_embeddings, text_embeddings, self.model.logit_scale.exp()
 
-        return self.model.logit_scale.exp() * image_embeddings @ text_embeddings.t()
+        res = image_embeddings @ text_embeddings.t()
+
+        if not self.remove_logit_scale:
+            res *= self.model.logit_scale.exp()
+
+        return res
 
     def get_params(self):
         exclude_param = "logit_scale"
@@ -240,6 +265,7 @@ def get_model(
             freeze_classification_head=model_config.get(
                 "freeze_classification_head", False
             ),
+            remove_logit_scale=model_config.get("remove_logit_scale", False),
             device=device,
         )
     else:
