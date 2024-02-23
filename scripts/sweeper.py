@@ -25,7 +25,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config_path", type=str, default="configs/mix_teacher_config.yaml")
     p.add_argument("--pretrained_dataset", type=str, default="fgvc-aircraft")
-    p.add_argument("--dataset", type=str, default="caltech-101")
+    p.add_argument("--dataset", type=str, default="dtd")
 
     args = p.parse_args()
 

@@ -21,7 +21,7 @@ TRAINER_MAPPING = {
 
 def get_kd_trainer(model, dataloaders, config, teacher_models, job_id=None):
     if "ref_dataset" in config.method:
-        train_transform, _ = load_transform()
+        train_transform, _ = load_transform(config)
         dataset_name, dataloader_config = (
             config.method.ref_dataset,
             config.method.ref_dataset_config,
@@ -43,7 +43,7 @@ def get_kd_trainer(model, dataloaders, config, teacher_models, job_id=None):
         )
 
     if config.method.name == "previous_aware_zscl":
-        train_transform, _ = load_transform()
+        train_transform, _ = load_transform(config)
 
         previous_config = config.method.previous_config
         strategy = config.method.selected_strategy

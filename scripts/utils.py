@@ -5,13 +5,15 @@ from pathlib import Path
 from typing import List, Union
 
 DEFAULT_OUTPUT_ROOT = Path("outputs")
+DEFAULT_STORAGE_ROOT = Path("/work/chu980802")
 
 DEFAULT_DATASET_SEQ = [
     "fgvc-aircraft",
-    "caltech-101",
+    # "caltech-101",
     "dtd",
     "eurosat",
     "flowers-102",
+    "food-101",
     "oxford-pets",
     "stanford-cars",
     "ucf-101",
@@ -95,16 +97,16 @@ class ContinualTrainer:
         return "\n".join(lines) + "\n"
 
     def train_and_eval(self, pretrained_dataset=None, format=True):
-        for training_dataset in self.training_dataset_seq:
-            train_and_eval_script(
-                config_path=self.config_path,
-                training_dataset=training_dataset,
-                pretrained_dataset=pretrained_dataset,
-                eval_dataset_seq=self.eval_dataset_seq,
-                sub_output_dir=self.sub_output_dir,
-                **self.distributed_config,
-            )
-            pretrained_dataset = training_dataset
+        # for training_dataset in self.training_dataset_seq:
+        #     train_and_eval_script(
+        #         config_path=self.config_path,
+        #         training_dataset=training_dataset,
+        #         pretrained_dataset=pretrained_dataset,
+        #         eval_dataset_seq=self.eval_dataset_seq,
+        #         sub_output_dir=self.sub_output_dir,
+        #         **self.distributed_config,
+        #     )
+        #     pretrained_dataset = training_dataset
 
         res = self.aggregate_results(
             training_dataset_seq=self.training_dataset_seq,
@@ -126,8 +128,10 @@ class ContinualTrainer:
 
 
 def get_output_dataset_dir(
-    dataset, output_root=DEFAULT_OUTPUT_ROOT, timestamp="latest"
+    dataset=None, output_root=DEFAULT_OUTPUT_ROOT, timestamp="latest"
 ):
+    if dataset is None:
+        dataset = "openai"
     return output_root / dataset / timestamp
 
 
@@ -168,6 +172,7 @@ def train_and_eval_script(
     output_root = DEFAULT_OUTPUT_ROOT / sub_output_dir
     pretrained_model_path = get_model_path(pretrained_dataset, output_root=output_root)
 
+    # if training_dataset != "fgvc-aircraft":
     training_script(
         config_path=config_path,
         training_module=training_module,
