@@ -6,9 +6,9 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 from tqdm import tqdm
 
-import wandb
 from src.trainer.utils import CosineLRScheduler, get_optimizer
 from src.utils import AccuracyMeter, dump_config, is_main_process, main_process
 
@@ -93,7 +93,8 @@ class BaseTrainer:
 
     @property
     def num_total_train_steps(self):
-        return min(self.max_epoch * len(self.train_loader), self.max_iterations)
+        minimum_iterations = max(2 * len(self.train_loader), self.max_iterations)
+        return min(self.max_epoch * len(self.train_loader), minimum_iterations)
 
     @property
     def max_epoch(self):
