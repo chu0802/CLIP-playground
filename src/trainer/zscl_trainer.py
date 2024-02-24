@@ -38,7 +38,9 @@ class ZSCLTrainer(BaseKDTrainer):
                 ref_images, self.ref_sentences, get_features=True
             )
 
-        student_ref_image_embedding = self.train_model.module.encode(images=ref_images)
+        student_ref_image_embedding = self.unwrapped_model(self.train_model).encode(
+            images=ref_images
+        )
 
         student_logits = (
             logit_scale * student_ref_image_embedding @ teacher_ref_text_embedding.t()
@@ -71,9 +73,9 @@ class ZSCLTrainer(BaseKDTrainer):
         return loss, loss_dict
 
     def train(self, *args, **kwargs):
-        self.dataloaders["ref_sentences"] = self.train_model.module.tokenize(
-            self.dataloaders["ref_sentences"]
-        )
+        self.dataloaders["ref_sentences"] = self.unwrapped_model(
+            self.train_model
+        ).tokenize(self.dataloaders["ref_sentences"])
         super().train(*args, **kwargs)
 
 

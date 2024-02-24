@@ -168,7 +168,9 @@ class SplitTeacherPureClipKDTrainer(MixTeacherKDTrainer):
             images, labels, label_smoothing=label_smoothing
         )
 
-        student_ref_image_embedding = self.train_model.module.encode(images=ref_images)
+        student_ref_image_embedding = self.unwrapped_model(self.train_model).encode(
+            images=ref_images
+        )
 
         with torch.no_grad():
             (
