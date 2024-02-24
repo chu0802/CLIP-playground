@@ -6,9 +6,9 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import wandb
 from tqdm import tqdm
 
+import wandb
 from src.trainer.utils import CosineLRScheduler, get_optimizer
 from src.utils import AccuracyMeter, dump_config, is_main_process, main_process
 
@@ -151,7 +151,8 @@ class BaseTrainer:
 
     def base_loss(self, images, labels, label_smoothing=0.2, **_):
         outputs = self.train_model(images)
-        return F.cross_entropy(outputs, labels, label_smoothing=label_smoothing)
+        loss = F.cross_entropy(outputs, labels, label_smoothing=label_smoothing)
+        return loss, {"loss": loss.item()}
 
     def train_step(self, images, labels):
         self.current_num_iterations += 1
@@ -275,11 +276,13 @@ class BaseKDTrainer(BaseTrainer):
         label_smoothing=0.2,
         feature_criterion=None,
     ):
-        base_loss = self.base_loss(images, labels, label_smoothing=label_smoothing)
+        base_loss, loss_dict = self.base_loss(
+            images, labels, label_smoothing=label_smoothing
+        )
         kd_loss = self.get_kd_loss(ref_data, feature_criterion=feature_criterion)
 
         return base_loss + ratio * kd_loss, {
-            "base_loss": base_loss.item(),
+            **loss_dict,
             "kd_loss": kd_loss.item(),
         }
 
@@ -293,13 +296,13 @@ class BaseKDTrainer(BaseTrainer):
 
     def lwf_loss(self, images, labels, ratio, label_smoothing=0.2, **_):
         student_logits = self.train_model(images)
-        base_loss = F.cross_entropy(
+        base_loss, loss_dict = F.cross_entropy(
             student_logits, labels, label_smoothing=label_smoothing
         )
         kd_loss = self.get_kd_loss(ref_data=images, student_logits=student_logits)
 
         return base_loss + ratio * kd_loss, {
-            "base_loss": base_loss.item(),
+            **loss_dict,
             "kd_loss": kd_loss.item(),
         }
 

@@ -25,9 +25,9 @@ class ZSCLTrainer(BaseKDTrainer):
     def zscl_loss(self, images, labels, label_smoothing=0.2, l2_ratio=1, **_):
         ref_images, _ = self.get_ref_data(self.ref_loader)
 
-        loss_dict = {}
-
-        base_loss = self.base_loss(images, labels, label_smoothing=label_smoothing)
+        base_loss, loss_dict = self.base_loss(
+            images, labels, label_smoothing=label_smoothing
+        )
 
         with torch.no_grad():
             (
@@ -55,11 +55,12 @@ class ZSCLTrainer(BaseKDTrainer):
         zscl_text_loss = self._get_kd_loss(student_text_logits, teacher_text_logits)
 
         loss = base_loss + zscl_image_loss + zscl_text_loss
-        loss_dict = {
-            "base_loss": base_loss.item(),
-            "zscl_image_loss": zscl_image_loss.item(),
-            "zscl_text_loss": zscl_text_loss.item(),
-        }
+        loss_dict.update(
+            {
+                "zscl_image_loss": zscl_image_loss.item(),
+                "zscl_text_loss": zscl_text_loss.item(),
+            }
+        )
 
         if l2_ratio > 0:
             l2_loss = self.l2_loss(self.train_model, self.l2_model)
