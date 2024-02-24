@@ -97,16 +97,16 @@ class ContinualTrainer:
         return "\n".join(lines) + "\n"
 
     def train_and_eval(self, pretrained_dataset=None, format=True):
-        # for training_dataset in self.training_dataset_seq:
-        #     train_and_eval_script(
-        #         config_path=self.config_path,
-        #         training_dataset=training_dataset,
-        #         pretrained_dataset=pretrained_dataset,
-        #         eval_dataset_seq=self.eval_dataset_seq,
-        #         sub_output_dir=self.sub_output_dir,
-        #         **self.distributed_config,
-        #     )
-        #     pretrained_dataset = training_dataset
+        for training_dataset in self.training_dataset_seq:
+            train_and_eval_script(
+                config_path=self.config_path,
+                training_dataset=training_dataset,
+                pretrained_dataset=pretrained_dataset,
+                eval_dataset_seq=self.eval_dataset_seq,
+                sub_output_dir=self.sub_output_dir,
+                **self.distributed_config,
+            )
+            pretrained_dataset = training_dataset
 
         res = self.aggregate_results(
             training_dataset_seq=self.training_dataset_seq,
@@ -164,13 +164,16 @@ def train_and_eval_script(
     max_iterations: int = 1000,
     sub_output_dir: str = "default",
     eval_epoch: Union[int, str] = "latest",
+    timestamp="latest",
     distributed=False,
     nnodes=1,
     nproc_per_node=1,
     **method_config,
 ):
     output_root = DEFAULT_OUTPUT_ROOT / sub_output_dir
-    pretrained_model_path = get_model_path(pretrained_dataset, output_root=output_root)
+    pretrained_model_path = get_model_path(
+        pretrained_dataset, output_root=output_root, timestamp=timestamp
+    )
 
     # if training_dataset != "fgvc-aircraft":
     training_script(
@@ -235,6 +238,7 @@ def training_script(
         f"task.max_epoch={max_epoch}",
         f"task.max_iterations={max_iterations}",
         f"task.output_dir={DEFAULT_OUTPUT_ROOT}/{sub_output_dir}",
+        f"task.distributed={distributed}",
     ]
 
     if len(method_config) > 0:

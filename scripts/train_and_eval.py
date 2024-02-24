@@ -12,6 +12,7 @@ def main(args):
         max_iterations=args.max_iterations,
         sub_output_dir=args.sub_output_dir,
         eval_epoch=args.eval_epoch,
+        timestamp=args.timestamp,
         distributed=args.distributed,
         nnodes=args.nnodes,
         nproc_per_node=args.nproc_per_node,
@@ -28,6 +29,9 @@ if __name__ == "__main__":
     p.add_argument("--sub_output_dir", type=str, default="default")
     p.add_argument("--train_epoch", type=int, default=10)
     p.add_argument("--max_iterations", type=int, default=1000)
+    p.add_argument(
+        "--timestamp", type=str, default="default", help="select the timestamp folder"
+    )
     p.add_argument(
         "--eval_epoch",
         type=str,
