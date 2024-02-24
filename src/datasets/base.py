@@ -102,7 +102,7 @@ class ImageListDataset(BaseClassificationDataset):
             literal_eval(line)
             for line in image_list_path.read_text().strip().split("\n")
         ]
-
+        self.label_shift = 0
         self.transform = transform
         self.rng = np.random.default_rng(seed)
 
