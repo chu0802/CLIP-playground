@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Union
 
 DEFAULT_OUTPUT_ROOT = Path("outputs")
-DEFAULT_STORAGE_ROOT = Path("/work/chu980802")
+DEFAULT_STORAGE_ROOT = Path("/work/chu980802/mix-teacher")
 
 DEFAULT_DATASET_SEQ = [
     "fgvc-aircraft",
