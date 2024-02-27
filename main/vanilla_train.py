@@ -39,5 +39,5 @@ def main(config):
 
 if __name__ == "__main__":
     config = get_config(mode="train")
-    # init_distributed_mode(config.task)
+    init_distributed_mode(config.task)
     main(config)
