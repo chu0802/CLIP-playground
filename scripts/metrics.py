@@ -1,13 +1,13 @@
 import argparse
 import json
 
+import numpy as np
 import pandas as pd
 
 from scripts.utils import DEFAULT_DATASET_SEQ, DEFAULT_STORAGE_ROOT
 
 DEFAULT_ZERO_SHOT_PERFORMANCE = {
     "fgvc-aircraft": 0.2391,
-    "caltech-101": 0.9221,
     "dtd": 0.4439,
     "eurosat": 0.4222,
     "flowers-102": 0.6740,
@@ -17,10 +17,86 @@ DEFAULT_ZERO_SHOT_PERFORMANCE = {
     "ucf-101": 0.6426,
 }
 
+DEFAULT_FINE_TUNING_PERFORMANCE = {
+    "fgvc-aircraft": 0.5413,
+    "dtd": 0.7973,
+    "eurosat": 0.9875,
+    "flowers-102": 0.9834,
+    "food-101": 0.8985,
+    "oxford-pets": 0.9414,
+    "stanford-cars": 0.8607,
+    "ucf-101": 0.8866,
+}
+
+DEFAULT_MDCIL_ZERO_SHOT_PERFORMANCE = {
+    "fgvc-aircraft": 0.2385,
+    "dtd": 0.3670,
+    "eurosat": 0.3079,
+    "flowers-102": 0.6719,
+    "food-101": 0.8360,
+    "oxford-pets": 0.8708,
+    "stanford-cars": 0.6527,
+    "ucf-101": 0.6297,
+}
+
+DEFAULT_MDCIL_FINE_TUNING_PERFORMANCE = {
+    "fgvc-aircraft": 0.5395,
+    "dtd": 0.7494,
+    "eurosat": 0.9842,
+    "flowers-102": 0.9834,
+    "food-101": 0.8957,
+    "oxford-pets": 0.9340,
+    "stanford-cars": 0.8607,
+    "ucf-101": 0.8768,
+}
+
+
+def zero_shot_performance(is_mdcil=False):
+    return (
+        DEFAULT_MDCIL_ZERO_SHOT_PERFORMANCE
+        if is_mdcil
+        else DEFAULT_ZERO_SHOT_PERFORMANCE
+    )
+
 
 def metric_to_dataframe(metric, index_name, columns=DEFAULT_DATASET_SEQ):
     data_frame = pd.DataFrame(metric, index=[index_name]).loc[:, columns]
     return data_frame.round(2)
+
+
+def zscl_trasnfer(res):
+    metric = {
+        res.index[i]: 100 * (res.loc[:, res.index[i]].iloc[:i].mean())
+        for i in range(1, len(res))
+    }
+    metric[res.index[0]] = -1
+    df = metric_to_dataframe(metric, "transfer")
+
+    df["avg"] = df.to_numpy()[df.to_numpy() > 0].mean()
+
+    return df.round(2)
+
+
+def zscl_average(res):
+    metric = {
+        res.index[i]: 100 * res.loc[:, res.index[i]].to_numpy().mean()
+        for i in range(len(res))
+    }
+
+    df = metric_to_dataframe(metric, "avg")
+    df["avg"] = df.to_numpy().mean()
+
+    return df.round(2)
+
+
+def zscl_last(res):
+    metric = {
+        res.index[i]: 100 * res.loc[:, res.index[i]].iloc[-1] for i in range(len(res))
+    }
+    df = metric_to_dataframe(metric, "last")
+    df["avg"] = df.to_numpy().mean()
+
+    return df.round(2)
 
 
 def max_catastrophic_forgetting(res_list):
@@ -33,12 +109,12 @@ def max_catastrophic_forgetting(res_list):
     return metric_to_dataframe(metric, "catastrophic forgetting")
 
 
-def max_zero_shot_degradation(res_list):
+def max_zero_shot_degradation(res_list, is_mdcil=False):
     metric = {
         res.index[-1]: 100
         * (
             res.loc[:, res.index[-1]].min()
-            - DEFAULT_ZERO_SHOT_PERFORMANCE[res.index[-1]]
+            - zero_shot_performance(is_mdcil=is_mdcil)[res.index[-1]]
         )
         # res.index[-1]: 100 * res.loc[:, res.index[-1]].min()
         for res in res_list
@@ -53,11 +129,10 @@ def avg_final_performance(res_list):
     return metric.to_frame("avg. final performance").T
 
 
-def parse_results(method="split_teacher_pure_clip"):
-    if "mdcil" in method:
-        config_name = f'{"_".join(method.split("_")[:-1])}_config'
-    else:
-        config_name = f"{method}_config"
+def parse_results(method="split_teacher_pure_clip", is_mdcil=False):
+    config_prefix = method.replace("_mdcil", "") if is_mdcil else method
+    config_name = f"{config_prefix}_config"
+
     res_list = []
     for order in range(8):
         res_path = (
@@ -75,20 +150,23 @@ def parse_results(method="split_teacher_pure_clip"):
 
 
 def main(args):
-    res_list = parse_results(method=args.method)
+    res_list = parse_results(method=args.method, is_mdcil=args.is_mdcil)
 
     if args.order == "overall":
         forget = max_catastrophic_forgetting(res_list)
-        degradation = max_zero_shot_degradation(res_list)
+        degradation = max_zero_shot_degradation(res_list, is_mdcil=args.is_mdcil)
         avg = avg_final_performance(res_list)
 
         print(pd.concat([forget, degradation, avg], axis=0).round(2))
     else:
-        print(
-            (100 * res_list[int(args.order)])
-            .round(2)
-            .loc[:, res_list[int(args.order)].index]
-        )
+        order = int(args.order)
+        if args.zscl:
+            transfer = zscl_trasnfer(res_list[order])
+            avg = zscl_average(res_list[order])
+            last = zscl_last(res_list[order])
+            print(pd.concat([transfer, avg, last], axis=0).round(2))
+        else:
+            print((100 * res_list[order]).round(2).loc[:, res_list[order].index])
 
 
 if __name__ == "__main__":
@@ -100,6 +178,14 @@ if __name__ == "__main__":
         default="overall",
         choices=[str(i) for i in range(8)] + ["overall"],
     )
+    p.add_argument(
+        "--zscl",
+        action="store_true",
+        default=False,
+        help="use metrics proposed by zscl",
+    )
     args = p.parse_args()
+
+    args.is_mdcil = "mdcil" in args.method
 
     main(args)
