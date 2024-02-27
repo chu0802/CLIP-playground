@@ -21,6 +21,7 @@ def main(args):
 
     continual_trainer = ContinualTrainer(
         config_path=args.config_path,
+        module=args.module,
         training_dataset_seq=dataset_seq,
         sub_output_dir=sub_output_dir,
         distributed=args.distributed,
@@ -42,6 +43,7 @@ if __name__ == "__main__":
         default=None,
         help="the sequence of training datasets, splitted by comma",
     )
+    p.add_argument("--module", type=str, default="main.train")
     p.add_argument("--pretrained_dataset", type=str, default=None)
     p.add_argument("--distributed", action="store_true")
     p.add_argument("--nnodes", type=int, default=1)

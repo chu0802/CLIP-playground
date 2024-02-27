@@ -24,6 +24,7 @@ class ContinualTrainer:
     def __init__(
         self,
         config_path: str = "configs/mix_teacher_config.yaml",
+        module: str = "main.train",
         training_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
         eval_dataset_seq: List[str] = None,
         sub_output_dir: str = "default",
@@ -32,6 +33,7 @@ class ContinualTrainer:
         nproc_per_node: int = 1,
     ):
         self.config_path = config_path
+        self.module = module
         self.training_dataset_seq = training_dataset_seq
         self.eval_dataset_seq = (
             training_dataset_seq if eval_dataset_seq is None else eval_dataset_seq
@@ -100,6 +102,7 @@ class ContinualTrainer:
         for training_dataset in self.training_dataset_seq:
             train_and_eval_script(
                 config_path=self.config_path,
+                training_module=self.module,
                 training_dataset=training_dataset,
                 pretrained_dataset=pretrained_dataset,
                 eval_dataset_seq=self.eval_dataset_seq,
