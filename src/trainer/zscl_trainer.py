@@ -2,6 +2,54 @@ import numpy as np
 import torch
 
 from src.trainer.base_trainer import BaseKDTrainer
+from src.trainer.utils import L2Loss
+
+
+class ReferenceTrainer(BaseKDTrainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.feature_criterion = L2Loss(reduce=None, square=False)
+
+    def teacher_model(self, teacher_source):
+        return self._teachers[teacher_source]
+
+    def reference_loss(
+        self,
+        images,
+        labels,
+        ratio_ref=1,
+        label_smoothing=0.0,
+        teacher_source="pretrained",
+        **_,
+    ):
+        ref_images, _ = self.get_ref_data(self.ref_loader)
+
+        base_loss, loss_dict = self.base_loss(
+            images, labels, label_smoothing=label_smoothing
+        )
+
+        with torch.no_grad():
+            (teacher_ref_image_embedding, _, _,) = self.teacher_model(
+                teacher_source
+            )(ref_images, get_features=True)
+
+        student_ref_image_embedding = self.unwrapped_model(self.train_model).encode(
+            images=ref_images
+        )
+
+        kd_loss = self._get_kd_loss(
+            student_ref_image_embedding,
+            teacher_ref_image_embedding,
+            feature_criterion=self.feature_criterion,
+        )
+
+        return (
+            base_loss + ratio_ref * kd_loss,
+            {
+                **loss_dict,
+                "kd_loss": kd_loss.item(),
+            },
+        )
 
 
 class ZSCLTrainer(BaseKDTrainer):
@@ -98,7 +146,6 @@ class PreviousAwareZSCLTrainer(ZSCLTrainer):
         labels,
         ratio_ref,
         ratio_prev,
-        mixup=False,
         has_noise=False,
         label_smoothing=0.2,
         **_,
@@ -113,13 +160,6 @@ class PreviousAwareZSCLTrainer(ZSCLTrainer):
         previous_images, _ = self.get_ref_data(
             self.previous_loader, has_noise=has_noise
         )
-
-        if mixup:
-            permute_images = previous_images[
-                torch.randperm(previous_images.shape[0]).to(previous_images.device)
-            ]
-            lamda = np.random.beta(1.0, 1.0)
-            previous_images = lamda * previous_images + (1 - lamda) * permute_images
 
         previous_loss = self.get_kd_loss(
             previous_images,
