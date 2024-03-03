@@ -7,7 +7,7 @@ from .mix_teacher_trainer import (
     SplitTeacherKDTrainer,
     SplitTeacherPureClipKDTrainer,
 )
-from .we_trainer import get_weight_ensemble_trainer_class
+from .we_trainer import get_weight_ensemble_trainer_class, get_wise_trainer_class
 from .zscl_trainer import PreviousAwareZSCLTrainer, ZSCLTrainer
 
 TRAINER_MAPPING = {
@@ -66,5 +66,7 @@ def get_kd_trainer(model, dataloaders, config, teacher_models, job_id=None):
         and config.method.weight_space_config.enable
     ):
         meta_trainer_class = get_weight_ensemble_trainer_class(meta_trainer_class)
+    elif config.method.get("wise_config", False) and config.method.wise_config.enable:
+        meta_trainer_class = get_wise_trainer_class(meta_trainer_class)
 
     return meta_trainer_class(model, dataloaders, config, teacher_models, job_id)

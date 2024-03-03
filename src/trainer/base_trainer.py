@@ -144,7 +144,7 @@ class BaseTrainer:
             print(json.dumps(self.local_log))
 
     def unwrapped_model(self, model):
-        if self.distributed:
+        if self.distributed and hasattr(model, "module"):
             return model.module
         else:
             return model
