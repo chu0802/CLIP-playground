@@ -148,7 +148,8 @@ def get_model_path(
 
 
 def start_subprocess(command, print_command=False):
-    command = " ".join(command)
+    if isinstance(command, list):
+        command = " ".join(command)
     if print_command:
         print(command + "\n")
     output = subprocess.check_output(command, shell=True)
