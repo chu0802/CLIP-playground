@@ -5,6 +5,7 @@ from .base_trainer import BaseKDTrainer, BaseTrainer
 from .mix_teacher_trainer import (
     MixTeacherKDTrainer,
     SplitTeacherKDTrainer,
+    SplitTeacherPureClipFixedScoresTrainer,
     SplitTeacherPureClipKDTrainer,
 )
 from .we_trainer import get_weight_ensemble_trainer_class, get_wise_trainer_class
@@ -16,6 +17,7 @@ TRAINER_MAPPING = {
     "mix_teacher": MixTeacherKDTrainer,
     "split_teacher": SplitTeacherKDTrainer,
     "split_teacher_pure_clip": SplitTeacherPureClipKDTrainer,
+    "split_teacher_pure_clip_fixed_scores": SplitTeacherPureClipFixedScoresTrainer,
 }
 
 

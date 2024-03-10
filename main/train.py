@@ -36,6 +36,7 @@ def main(config):
         "mix_teacher",
         "split_teacher",
         "split_teacher_pure_clip",
+        "split_teacher_pure_clip_fixed_scores",
     ]:
         # to derive fine-tuned knowledge from teacher, we should not use pre-trained model as the teacher model.
         teachers["prev"] = get_model(

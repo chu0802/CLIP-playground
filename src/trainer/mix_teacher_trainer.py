@@ -222,3 +222,63 @@ class SplitTeacherPureClipKDTrainer(MixTeacherKDTrainer):
                 "num_valid_prev_data": self.num_valid_prev_data,
             },
         )
+
+
+class SplitTeacherPureClipFixedScoresTrainer(MixTeacherKDTrainer):
+    def split_teacher_pure_clip_fixed_scores_loss(
+        self,
+        images,
+        labels,
+        ratio_prev=9,
+        ratio_pretrained=0.5,
+        label_smoothing=0.0,
+        scores=0.5,
+    ):
+        ref_images, _ = self.get_ref_data(self.ref_loader)
+        base_loss, loss_dict = self.base_loss(
+            images, labels, label_smoothing=label_smoothing
+        )
+
+        student_ref_image_embedding = self.unwrapped_model(self.train_model).encode(
+            images=ref_images
+        )
+
+        with torch.no_grad():
+            (
+                pretrained_teacher_ref_image_embedding,
+                _,
+                _,
+            ) = self.pretrained_teacher_model(ref_images, get_features=True)
+
+            (
+                prev_teacher_ref_image_embedding,
+                _,
+                _,
+            ) = self.prev_teacher_model(ref_images, get_features=True)
+
+        pretrained_kd_loss = self._get_kd_loss(
+            student_ref_image_embedding,
+            pretrained_teacher_ref_image_embedding,
+            feature_criterion=self.feature_criterion,
+        )
+        prev_kd_loss = self._get_kd_loss(
+            student_ref_image_embedding,
+            prev_teacher_ref_image_embedding,
+            feature_criterion=self.feature_criterion,
+        )
+
+        prev_kd_loss = (scores * prev_kd_loss).mean()
+
+        pretrained_kd_loss = ((1 - scores) * pretrained_kd_loss).mean()
+
+        return (
+            base_loss
+            + ratio_prev * prev_kd_loss
+            + ratio_pretrained * pretrained_kd_loss,
+            {
+                **loss_dict,
+                "prev_kd_loss": prev_kd_loss.item(),
+                "pretrained_kd_loss": pretrained_kd_loss.item(),
+                "num_valid_prev_data": self.num_valid_prev_data,
+            },
+        )
