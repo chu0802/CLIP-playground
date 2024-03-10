@@ -27,7 +27,9 @@ class ContinualTrainer:
         module: str = "main.train",
         training_dataset_seq: List[str] = DEFAULT_DATASET_SEQ,
         eval_dataset_seq: List[str] = None,
+        output_root: Path = DEFAULT_OUTPUT_ROOT,
         sub_output_dir: str = "default",
+        method_config=None,
         distributed: bool = False,
         nnodes: int = 1,
         nproc_per_node: int = 1,
@@ -43,10 +45,13 @@ class ContinualTrainer:
             "nnodes": nnodes,
             "nproc_per_node": nproc_per_node,
         }
+        self.output_root = output_root
         self.sub_output_dir = sub_output_dir
 
+        self.method_config = method_config
+
         self.output_dir = (
-            DEFAULT_OUTPUT_ROOT / self.sub_output_dir / Path(self.config_path).stem
+            self.output_root / self.sub_output_dir / Path(self.config_path).stem
         )
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -106,8 +111,10 @@ class ContinualTrainer:
                 training_dataset=training_dataset,
                 pretrained_dataset=pretrained_dataset,
                 eval_dataset_seq=self.eval_dataset_seq,
+                output_root=self.output_root,
                 sub_output_dir=self.sub_output_dir,
                 **self.distributed_config,
+                **self.method_config,
             )
             pretrained_dataset = training_dataset
 
@@ -166,6 +173,7 @@ def train_and_eval_script(
     sample_num: int = -1,
     max_epoch: int = 10,
     max_iterations: int = 1000,
+    output_root: Path = DEFAULT_OUTPUT_ROOT,
     sub_output_dir: str = "default",
     eval_epoch: Union[int, str] = "latest",
     timestamp="latest",
@@ -174,9 +182,9 @@ def train_and_eval_script(
     nproc_per_node=1,
     **method_config,
 ):
-    output_root = DEFAULT_OUTPUT_ROOT / sub_output_dir
+    output_dir = output_root / sub_output_dir
     pretrained_model_path = get_model_path(
-        pretrained_dataset, output_root=output_root, timestamp=timestamp
+        pretrained_dataset, output_root=output_dir, timestamp=timestamp
     )
 
     # if training_dataset != "fgvc-aircraft":
@@ -188,6 +196,7 @@ def train_and_eval_script(
         sample_num=sample_num,
         max_epoch=max_epoch,
         max_iterations=max_iterations,
+        output_root=output_root,
         sub_output_dir=sub_output_dir,
         distributed=distributed,
         nnodes=nnodes,
@@ -196,10 +205,10 @@ def train_and_eval_script(
     )
 
     model_path = get_model_path(
-        training_dataset, output_root=output_root, epoch=eval_epoch
+        training_dataset, output_root=output_dir, epoch=eval_epoch
     )
     eval_results_path = (
-        get_output_dataset_dir(training_dataset, output_root=output_root)
+        get_output_dataset_dir(training_dataset, output_root=output_dir)
         / "eval_results.json"
     )
 
@@ -218,6 +227,7 @@ def training_script(
     sample_num=-1,
     max_epoch=10,
     max_iterations=1000,
+    output_root=DEFAULT_OUTPUT_ROOT,
     sub_output_dir="default",
     distributed=False,
     nnodes=1,
@@ -241,7 +251,7 @@ def training_script(
         f"data.sample_num={sample_num}",
         f"task.max_epoch={max_epoch}",
         f"task.max_iterations={max_iterations}",
-        f"task.output_dir={DEFAULT_OUTPUT_ROOT}/{sub_output_dir}",
+        f"task.output_dir={output_root}/{sub_output_dir}",
         f"task.distributed={distributed}",
     ]
 
