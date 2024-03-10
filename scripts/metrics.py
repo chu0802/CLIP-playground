@@ -102,8 +102,14 @@ def zscl_last(res):
 def max_catastrophic_forgetting(res_list):
     metric = {
         res.index[0]: 100
-        * (res.loc[:, res.index[0]].min() - res.loc[:, res.index[0]].max())
+        # * (res.loc[:, res.index[0]].max() - res.loc[:, res.index[0]].min())
         # res.index[0]: 100 * res.loc[:, res.index[0]].min()
+        * np.array(
+            [
+                res.iloc[:-1].loc[:, dataset].max() - res.iloc[-1].loc[dataset]
+                for dataset in res.index[:-1]
+            ]
+        ).mean()
         for res in res_list
     }
     return metric_to_dataframe(metric, "catastrophic forgetting")
@@ -111,11 +117,18 @@ def max_catastrophic_forgetting(res_list):
 
 def max_zero_shot_degradation(res_list, is_mdcil=False):
     metric = {
-        res.index[-1]: 100
+        # res.index[-1]: 100
+        res.index[0]: 100
         * (
-            res.loc[:, res.index[-1]].min()
-            - zero_shot_performance(is_mdcil=is_mdcil)[res.index[-1]]
+            np.array(
+                [
+                    zero_shot_performance(is_mdcil=is_mdcil)[dataset]
+                    - res.loc[:dataset, dataset].min()
+                    for dataset in res.index[1:]
+                ]
+            ).mean()
         )
+        # * (zero_shot_performance(is_mdcil=is_mdcil)[res.index[-1]] - res.loc[:, res.index[-1]].min())
         # res.index[-1]: 100 * res.loc[:, res.index[-1]].min()
         for res in res_list
     }
@@ -123,10 +136,12 @@ def max_zero_shot_degradation(res_list, is_mdcil=False):
 
 
 def avg_final_performance(res_list):
-    metric = 100 * pd.concat(
-        [res.iloc[-1][DEFAULT_DATASET_SEQ] for res in res_list], axis=1
-    ).mean(axis=1)
-    return metric.to_frame("avg. final performance").T
+    metric = {res.index[0]: 100 * res.iloc[-1].mean() for res in res_list}
+    # metric = 100 * pd.concat(
+    #     [res.iloc[-1][DEFAULT_DATASET_SEQ] for res in res_list], axis=1
+    # ).mean(axis=1)
+    # return metric.to_frame("avg. final performance").T
+    return metric_to_dataframe(metric, "avg. final performance")
 
 
 def parse_results(method="split_teacher_pure_clip", is_mdcil=False):
@@ -166,7 +181,7 @@ def main(args):
             last = zscl_last(res_list[order])
             print(pd.concat([transfer, avg, last], axis=0).round(2))
         else:
-            print((100 * res_list[order]).round(2).loc[:, res_list[order].index])
+            print((100 * res_list[order]).round(4).loc[:, res_list[order].index])
 
 
 if __name__ == "__main__":
@@ -185,6 +200,8 @@ if __name__ == "__main__":
         help="use metrics proposed by zscl",
     )
     args = p.parse_args()
+
+    args.method = args.method.replace("ours", "split_teacher_pure_clip")
 
     args.is_mdcil = "mdcil" in args.method
 
