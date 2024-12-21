@@ -93,6 +93,40 @@ class BaseClassificationDataset(Dataset):
         return image, label + self.label_shift, index
 
 
+class BaseUnlabeledDataset(BaseClassificationDataset):
+    @property
+    def class_name_list(self):
+        return None
+
+    def make_dataset(self):
+        with (self.root / self.annotation_filename).open("r") as f:
+            data = json.load(f)
+
+        data_list = []
+        for d in data["data"][self.mode]:
+            data_list.append((self.root / "images" / d).as_posix())
+
+        return data_list, None
+
+    def get_class_name(self, _):
+        return None
+
+    def __getitem__(self, index):
+        path = self._data_list[index]
+        # image = pil_loader(path)
+        try:
+            image = pil_loader(path)
+        except:
+            with open("error.log", "a") as f:
+                f.write(path + "\n")
+            image = pil_loader(self._data_list[0])
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, -1, index
+
+
 class ImageListDataset(BaseClassificationDataset):
     def __init__(self, image_list_path, transform=None, seed=1102, sample_num=-1):
         if not isinstance(image_list_path, Path):

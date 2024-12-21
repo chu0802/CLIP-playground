@@ -1,9 +1,19 @@
-from src.datasets.base import BaseClassificationDataset
+from src.datasets.base import BaseClassificationDataset, BaseUnlabeledDataset
 
 
 class ImageNet(BaseClassificationDataset):
     dataset_name = "imagenet"
     annotation_filename = "annotations_new.json"
+
+
+class LaionArt(BaseUnlabeledDataset):
+    dataset_name = "laion-art"
+    annotation_filename = "annotations.json"
+
+
+class ConceptualCaptions12M(BaseUnlabeledDataset):
+    dataset_name = "conceptual_captions"
+    annotation_filename = "annotations.json"
 
 
 class Caltech101(BaseClassificationDataset):
