@@ -12,7 +12,7 @@ outputs*
 __pycache__/
 *.py[cod]
 *$py.class
-
+bash_scripts
 # C extensions
 *.so
 
