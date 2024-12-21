@@ -4,6 +4,8 @@ from src.datasets.utils import get_conceptual_captions, get_dataloader, load_tra
 from .base_trainer import BaseKDTrainer, BaseTrainer
 from .mix_teacher_trainer import (
     MixTeacherKDTrainer,
+    PretrainedTeacherTrainer,
+    PrevTeacherTrainer,
     SplitTeacherKDTrainer,
     SplitTeacherPureClipFixedScoresTrainer,
     SplitTeacherPureClipKDTrainer,
@@ -18,6 +20,8 @@ TRAINER_MAPPING = {
     "split_teacher": SplitTeacherKDTrainer,
     "split_teacher_pure_clip": SplitTeacherPureClipKDTrainer,
     "split_teacher_pure_clip_fixed_scores": SplitTeacherPureClipFixedScoresTrainer,
+    "pretrained_teacher": PretrainedTeacherTrainer,
+    "prev_teacher": PrevTeacherTrainer,
 }
 
 
