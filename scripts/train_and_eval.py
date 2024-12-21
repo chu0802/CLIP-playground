@@ -30,7 +30,7 @@ if __name__ == "__main__":
     p.add_argument("--train_epoch", type=int, default=10)
     p.add_argument("--max_iterations", type=int, default=1000)
     p.add_argument(
-        "--timestamp", type=str, default="default", help="select the timestamp folder"
+        "--timestamp", type=str, default="latest", help="select the timestamp folder"
     )
     p.add_argument(
         "--eval_epoch",

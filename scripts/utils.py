@@ -30,6 +30,8 @@ class ContinualTrainer:
         output_root: Path = DEFAULT_OUTPUT_ROOT,
         sub_output_dir: str = "default",
         method_config=None,
+        max_epoch: int = 10,
+        max_iterations: int = 10,
         distributed: bool = False,
         nnodes: int = 1,
         nproc_per_node: int = 1,
@@ -40,15 +42,18 @@ class ContinualTrainer:
         self.eval_dataset_seq = (
             training_dataset_seq if eval_dataset_seq is None else eval_dataset_seq
         )
-        self.distributed_config = {
+        self.train_eval_config = {
             "distributed": distributed,
             "nnodes": nnodes,
             "nproc_per_node": nproc_per_node,
+            "max_epoch": max_epoch,
+            "max_iterations": max_iterations,
         }
+
         self.output_root = output_root
         self.sub_output_dir = sub_output_dir
 
-        self.method_config = method_config
+        self.method_config = method_config if method_config is not None else {}
 
         self.output_dir = (
             self.output_root / self.sub_output_dir / Path(self.config_path).stem
@@ -113,7 +118,7 @@ class ContinualTrainer:
                 eval_dataset_seq=self.eval_dataset_seq,
                 output_root=self.output_root,
                 sub_output_dir=self.sub_output_dir,
-                **self.distributed_config,
+                **self.train_eval_config,
                 **self.method_config,
             )
             pretrained_dataset = training_dataset

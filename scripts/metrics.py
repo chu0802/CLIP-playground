@@ -60,8 +60,11 @@ def zero_shot_performance(is_mdcil=False):
 
 
 def metric_to_dataframe(metric, index_name, columns=DEFAULT_DATASET_SEQ):
-    data_frame = pd.DataFrame(metric, index=[index_name]).loc[:, columns]
-    return data_frame.round(2)
+    try:
+        data_frame = pd.DataFrame(metric, index=[index_name]).loc[:, columns]
+        return data_frame.round(2)
+    except:
+        return metric
 
 
 def zscl_trasnfer(res):
@@ -112,6 +115,7 @@ def max_catastrophic_forgetting(res_list):
         ).mean()
         for res in res_list
     }
+    # print(metric)
     return metric_to_dataframe(metric, "catastrophic forgetting")
 
 
@@ -132,6 +136,7 @@ def max_zero_shot_degradation(res_list, is_mdcil=False):
         # res.index[-1]: 100 * res.loc[:, res.index[-1]].min()
         for res in res_list
     }
+    # print(metric)
     return metric_to_dataframe(metric, "zero-shot degradation")
 
 
@@ -149,7 +154,10 @@ def parse_results(method="split_teacher_pure_clip", is_mdcil=False):
     config_name = f"{config_prefix}_config"
 
     res_list = []
-    for order in range(8):
+    output_dir = DEFAULT_STORAGE_ROOT / method / "outputs"
+    num_orders = len(list(output_dir.iterdir()))
+
+    for order in range(num_orders):
         res_path = (
             DEFAULT_STORAGE_ROOT
             / method
@@ -159,8 +167,10 @@ def parse_results(method="split_teacher_pure_clip", is_mdcil=False):
             / "final_results.json"
         )
         with res_path.open("r") as f:
-            res = json.load(f)
-        res_list.append(pd.DataFrame(res).T)
+            res = pd.DataFrame(json.load(f)).T
+        if res.iloc[0, 0] > 1:
+            res *= 0.01
+        res_list.append(res)
     return res_list
 
 
@@ -172,6 +182,7 @@ def main(args):
         degradation = max_zero_shot_degradation(res_list, is_mdcil=args.is_mdcil)
         avg = avg_final_performance(res_list)
 
+        # print(forget, degradation, avg)
         print(pd.concat([forget, degradation, avg], axis=0).round(2))
     else:
         order = int(args.order)
