@@ -17,7 +17,7 @@ method:
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train
-    batch_size: 64
+    batch_size: 16
     shuffle: True
     drop_last: True
     sample_num: 100000
@@ -27,11 +27,11 @@ method:
 
 data:
   name: fgvc-aircraft
-  root: /mnt/data/classification
+  root: /work/chu980802/data/classification
   split:
     train:
       split_name: train
-      batch_size: 32
+      batch_size: 8
       shuffle: True
       drop_last: True
     val:
@@ -44,15 +44,16 @@ data:
       batch_size: 256
       shuffle: False
       drop_last: False
+  # use_original_clip_transform: True
 
 task:
   # fine-tuning arguments
   init_lrs: 0.00001
-  weight_decay: 0.0005
-  seed: 1102
+  weight_decay: 0.0
+  seed: 223
   max_epoch: 10
   max_iterations: 1000
-  warmup_length: 0
+  warmup_length: 100
 
   output_dir: "outputs"
   log_interval: 10

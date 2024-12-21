@@ -19,7 +19,7 @@ method:
   ref_dataset: imagenet
   ref_dataset_config:
     split_name: train
-    batch_size: 64
+    batch_size: 16
     shuffle: True
     drop_last: True
     sample_num: 100000
@@ -29,11 +29,11 @@ method:
 
 data:
   name: fgvc-aircraft
-  root: /mnt/data/classification
+  root: /work/chu980802/data/classification
   split:
     train:
       split_name: train
-      batch_size: 32
+      batch_size: 8
       shuffle: True
       drop_last: True
     val:

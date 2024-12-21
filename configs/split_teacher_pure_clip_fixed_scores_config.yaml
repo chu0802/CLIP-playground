@@ -2,15 +2,30 @@ model:
   vit_base: ViT-B-16
   pretrained: openai
   use_pure_clip: True
+  freeze_classification_head: True
   wise:
     enable: False
     path: openai
     ratio: 0.2
 
+
 method:
-  name: base
+  name: split_teacher_pure_clip_fixed_scores
   params:
+    ratio_prev: 9
+    ratio_pretrained: 0.5
     label_smoothing: 0.0
+    scores: 0
+  ref_dataset: imagenet
+  ref_dataset_config:
+    split_name: train
+    batch_size: 16
+    shuffle: True
+    drop_last: True
+    sample_num: 100000
+  weight_space_config:
+    enable: False
+    interval: 100
 
 data:
   name: fgvc-aircraft
@@ -41,10 +56,10 @@ task:
   max_iterations: 1000
   warmup_length: 0
 
-  output_dir: "outputs"
+  output_dir: "outputs0"
   log_interval: 10
 
   world_size: 1
   dist_url: "env://"
-  distributed: False
+  distributed: True
   use_dist_eval_sampler: False
